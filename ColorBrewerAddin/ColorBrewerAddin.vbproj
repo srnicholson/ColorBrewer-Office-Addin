@@ -11,6 +11,7 @@
     </StartupObject>
     <AssemblyName>ColorBrewerAddin</AssemblyName>
     <OptionStrict>Off</OptionStrict>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -23,7 +24,6 @@
     <MapFileExtensions>true</MapFileExtensions>
     <ApplicationRevision>0</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
-    <IsWebBootstrapper>false</IsWebBootstrapper>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
@@ -87,11 +87,6 @@
     <Compile Include="Addin.vb">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="ColorBrewer_Dataset.Designer.vb">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>ColorBrewer_Dataset.xsd</DependentUpon>
-    </Compile>
     <Compile Include="My Project\Settings.Designer.vb">
       <AutoGen>True</AutoGen>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
@@ -140,18 +135,6 @@
     <EmbeddedResource Include="RibbonUI.xml" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="app.config" />
-    <None Include="ColorBrewer_Dataset.xsc">
-      <DependentUpon>ColorBrewer_Dataset.xsd</DependentUpon>
-    </None>
-    <EmbeddedResource Include="ColorBrewer_Dataset.xsd">
-      <SubType>Designer</SubType>
-      <Generator>MSDataSetGenerator</Generator>
-      <LastGenOutput>ColorBrewer_Dataset.Designer.vb</LastGenOutput>
-    </EmbeddedResource>
-    <None Include="ColorBrewer_Dataset.xss">
-      <DependentUpon>ColorBrewer_Dataset.xsd</DependentUpon>
-    </None>
     <None Include="My Project\Settings.settings">
       <CustomToolNamespace>My</CustomToolNamespace>
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -159,7 +142,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="ColorBrewer_Data.sdf" />
+    <EmbeddedResource Include="Palettes.xml" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.VisualBasic.Targets" />
   <PropertyGroup>

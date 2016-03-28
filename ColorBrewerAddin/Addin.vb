@@ -1,5 +1,5 @@
 ﻿Imports System.Runtime.InteropServices
-Imports System.IO
+Imports System.Data
 Imports Extensibility
 Imports Microsoft.Office.Core
 Imports System.Reflection
@@ -22,6 +22,8 @@ Public Class Addin
 
     Private applicationObject As Object
     Private addInInstance As Object
+    Dim PalettesDataSet As New DataSet
+    Dim PalettesDataTable As DataTable
 
     Public Sub OnBeginShutdown(ByRef custom As System.Array) Implements Extensibility.IDTExtensibility2.OnBeginShutdown
     End Sub
@@ -38,6 +40,16 @@ Public Class Addin
     Public Sub OnConnection(ByVal application As Object, ByVal connectMode As Extensibility.ext_ConnectMode, ByVal addInInst As Object, ByRef custom As System.Array) Implements Extensibility.IDTExtensibility2.OnConnection
         applicationObject = application
         addInInstance = addInInst
+        ''Load Palettes XML to datatable
+        Dim thisAssembly As Assembly = GetType(Addin).Assembly
+        Dim reader As New System.IO.StreamReader(thisAssembly.GetManifestResourceStream(thisAssembly.GetName.Name + ".Palettes.xml"))
+        Try
+            PalettesDataSet.ReadXml(reader)
+            reader.Close()
+            PalettesDataTable = PalettesDataSet.Tables(0)
+        Catch e As Exception
+            MsgBox(e.Message)
+        End Try
     End Sub
 #Region "IRibbonExtensibility Members"
 
@@ -85,6 +97,7 @@ Public Class Addin
         Dim chart_type As String
         Dim series_count As Integer
         Dim ColorName As String
+
         Try
             ColorName = "Accent"
             chart = applicationObject.ActiveChart
@@ -95,8 +108,6 @@ Public Class Addin
             MsgBox("No Chart Selected")
         End Try
 
-        'Utils.Dialog.ShowMessageBox("Chart type is: " + chart_type, "NetOfficeTools.SuperAddinVB4", DialogResult.None)
-        'Utils.Dialog.ShowMessageBox("Series count is: " + series_count.ToString, "NetOfficeTools.SuperAddinVB4", DialogResult.None)
     End Sub
 
     Public Sub Word_Sub()
@@ -111,8 +122,6 @@ Public Class Addin
             MsgBox("No Chart Selected")
         End Try
 
-        'Utils.Dialog.ShowMessageBox("Chart type is: " + chart_type, "NetOfficeTools.SuperAddinVB4", DialogResult.None)
-        'Utils.Dialog.ShowMessageBox("Series count is: " + series_count.ToString, "NetOfficeTools.SuperAddinVB4", DialogResult.None)
     End Sub
     Public Sub PowerPoint_Sub()
         Dim chart As Object
@@ -126,42 +135,21 @@ Public Class Addin
             MsgBox("No Chart Selected")
         End Try
 
-        'Utils.Dialog.ShowMessageBox("Chart type is: " + chart_type, "NetOfficeTools.SuperAddinVB4", DialogResult.None)
-        'Utils.Dialog.ShowMessageBox("Series count is: " + series_count.ToString, "NetOfficeTools.SuperAddinVB4", DialogResult.None)
     End Sub
 
-    Public Function GetPalette(ByVal pal As String, ByVal NumColors As Integer) As Object
-        'Dim PaletteArray(7)() As Double
-        'PaletteArray(0)(0) = {{127, 201, 127}, {190, 174, 212}, {253, 192, 134}}
-        'PaletteArray(0)(1) = {{127, 201, 127}, {190, 174, 212}, {253, 192, 134}, {255, 255, 153}}
-        'GetPalette = PaletteArray(0)(NumColors - 3)
-        Dim PaletteArray As Object = {{127, 201, 127}, {190, 174, 212}, {253, 192, 134}}
-        GetPalette = PaletteArray
+    Function GetPaletteData(pal As String, NumColors As Integer) As Array
+        Dim filter As String
+        filter = "[C] = '" + pal + "' AND [N] = " + NumColors.ToString
+        Try
+            Return PalettesDataTable.Select(filter)
+        Catch e As Exception
+            MsgBox(e.Message)
+            Return {} 'TODO: Make this an empty array
+        End Try
     End Function
 
-    'Function GetTable() As DataTable
-    '    ' Create new DataTable instance.
-    '    Dim table As New DataTable
-
-    '    ' Create DataTable
-    '    table.Columns.Add("ColorName", GetType(String))
-    '    table.Columns.Add("NumOfColors", GetType(Integer))
-    '    'table.Columns.Add("ColorNum", GetType(Integer))
-    '    table.Columns.Add("R", GetType(Integer))
-    '    table.Columns.Add("G", GetType(Integer))
-    '    table.Columns.Add("B", GetType(Integer))
-
-    '    ' Add five rows with those columns filled in the DataTable.
-    '    table.Rows.Add(25, "Indocin", "David", DateTime.Now)
-    '    table.Rows.Add(50, "Enebrel", "Sam", DateTime.Now)
-    '    table.Rows.Add(10, "Hydralazine", "Christoff", DateTime.Now)
-    '    table.Rows.Add(21, "Combivent", "Janet", DateTime.Now)
-    '    table.Rows.Add(100, "Dilantin", "Melanie", DateTime.Now)
-    '    Return table
-    'End Function
-
     Sub ColorBrewerFill(ByVal chart As Object, ByVal pal As String)
-        Dim palette(4, 2) As Integer 'Max dimensions should be specified here something like (9, 2) or (2, 9)
+        Dim palette As Array
         Dim series_count As Integer
         Dim rgb_color As Integer
         Dim i As Integer
@@ -171,9 +159,9 @@ Public Class Addin
                 'Chart types enumerated here: https://msdn.microsoft.com/en-us/library/office/ff838409.aspx
                 Case XlChartType.xlXYScatter, XlChartType.xlXYScatterLines, XlChartType.xlXYScatterLinesNoMarkers, XlChartType.xlXYScatterSmooth, XlChartType.xlRadarMarkers
                     'Points, Lines optional Case
-                    palette = GetPalette(pal, series_count)
+                    palette = GetPaletteData(pal, series_count)
                     For i = 1 To series_count
-                        rgb_color = RGB(palette(i - 1, 0), palette(i - 1, 1), palette(i - 1, 2))
+                        rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                         With .SeriesCollection(i)
                             .MarkerForegroundColor = rgb_color
                             .MarkerBackgroundColor = rgb_color
@@ -184,18 +172,18 @@ Public Class Addin
                     Next
                 Case XlChartType.xlLine, XlChartType.xlRadar
                     'Line Only Case
-                    palette = GetPalette(pal, series_count)
+                    palette = GetPaletteData(pal, series_count)
                     For i = 1 To series_count
-                        rgb_color = RGB(palette(i - 1, 0), palette(i - 1, 1), palette(i - 1, 2))
+                        rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                         With .SeriesCollection(i)
                             .Format.Line.ForeColor.RGB = rgb_color
                         End With
                     Next
                 Case XlChartType.xlColumnClustered, XlChartType.xlConeCol, XlChartType.xl3DArea, XlChartType.xlAreaStacked, XlChartType.xlAreaStacked100, XlChartType.xlBubble3DEffect, XlChartType.xlPyramidBarClustered, XlChartType.xlRadarFilled
                     'Area Case
-                    palette = GetPalette(pal, series_count)
+                    palette = GetPaletteData(pal, series_count)
                     For i = 1 To series_count
-                        rgb_color = RGB(palette(i - 1, 0), palette(i - 1, 1), palette(i - 1, 2))
+                        rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                         With .SeriesCollection(i)
                             .Interior.Color = rgb_color
                             .Border.Color = rgb_color
@@ -206,9 +194,9 @@ Public Class Addin
                     'Pie Case
                     For i = 1 To series_count
                         With .SeriesCollection(i)
-                            palette = GetPalette(pal, .Points.Count)
+                            palette = GetPaletteData(pal, .Points.Count)
                             For j = 1 To .Points.Count
-                                rgb_color = RGB(palette(j - 1, 0), palette(j - 1, 1), palette(j - 1, 2))
+                                rgb_color = RGB(palette(j - 1)(2), palette(j - 1)(3), palette(j - 1)(4))
                                 With .Points(j)
                                     .Interior.Color = rgb_color
                                     .Border.Color = rgb_color
@@ -220,18 +208,18 @@ Public Class Addin
                     'Surface Case
                     With .Legend
                         'TODO: If Legend doesn't exist, display it temporarily to change colors
-                        palette = GetPalette(pal, .LegendEntries.Count)
+                        palette = GetPaletteData(pal, .LegendEntries.Count)
                         For i = 1 To .LegendEntries.Count
-                            rgb_color = RGB(palette(i - 1, 0), palette(i - 1, 1), palette(i - 1, 2))
+                            rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                             .LegendEntries(i).LegendKey.Interior.Color = rgb_color
                         Next
                     End With
                 Case XlChartType.xlSurfaceWireframe, XlChartType.xlSurfaceTopViewWireframe
                     'Surface Wireframe Case
                     With .Legend
-                        palette = GetPalette(pal, .LegendEntries.Count)
+                        palette = GetPaletteData(pal, .LegendEntries.Count)
                         For i = 1 To .LegendEntries.Count
-                            rgb_color = RGB(palette(i - 1, 0), palette(i - 1, 1), palette(i - 1, 2))
+                            rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                             .LegendEntries(i).LegendKey.Border.Color = rgb_color
                         Next
                     End With
