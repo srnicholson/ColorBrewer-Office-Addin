@@ -3,6 +3,8 @@ Imports System.Data
 Imports Extensibility
 Imports Microsoft.Office.Core
 Imports System.Reflection
+Imports System.Drawing
+Imports System.IO
 
 
 #Region " Read me for Add-in installation and setup information. "
@@ -240,14 +242,14 @@ Public Class Addin
     Private Shared Function ReadString(ByVal fileName As String) As String
 
         Dim thisAssembly As Assembly = GetType(Addin).Assembly
-        Dim resourceStream As System.IO.Stream = thisAssembly.GetManifestResourceStream(thisAssembly.GetName().Name + "." + fileName)
+        Dim resourceStream As Stream = thisAssembly.GetManifestResourceStream(thisAssembly.GetName().Name + "." + fileName)
         If (IsNothing(resourceStream)) Then
-            Throw (New System.IO.IOException("Error accessing resource Stream."))
+            Throw (New IOException("Error accessing resource Stream."))
         End If
 
-        Dim textStreamReader As System.IO.StreamReader = New System.IO.StreamReader(resourceStream)
+        Dim textStreamReader As StreamReader = New StreamReader(resourceStream)
         If (IsNothing(textStreamReader)) Then
-            Throw (New System.IO.IOException("Error accessing resource File."))
+            Throw (New IOException("Error accessing resource File."))
         End If
 
         Dim text As String = textStreamReader.ReadToEnd()
@@ -256,7 +258,106 @@ Public Class Addin
         Return text
 
     End Function
+#End Region
 
+#Region "Gallery Callbacks"
+    Public Function LoadImage(ByVal imageName As String) As Bitmap
+        Dim thisAssembly As Assembly = GetType(Addin).Assembly
+        Dim stream As Stream = thisAssembly.GetManifestResourceStream(thisAssembly.GetName().Name + "." + imageName)
+        Return New Bitmap(stream)
+    End Function
+    Public Function GetLabel(ByVal control As IRibbonControl) As String
+        Dim strText As String
+        Select Case control.Id
+            Case "gallery1" : strText = "Select a Device:"
+            Case "button1" : strText = "Button in Gallery"
+        End Select
+        Return strText
+    End Function
+    Public Function GetShowImage(ByVal control As IRibbonControl) As Boolean
+        Return True
+    End Function
+    Public Function GetShowLabel(ByVal control As IRibbonControl) As Boolean
+        Return True
+    End Function
+    Public Function GetItemImage(ByVal control As IRibbonControl, ByVal itemIndex As Integer) As Bitmap
+        Dim imageName As String
+        Select Case (itemIndex)
+            Case 0 : imageName = "camera.bmp"
+            Case 1 : imageName = "video.bmp"
+            Case 2 : imageName = "mp3device.bmp"
+        End Select
+
+        Dim thisAssembly As Assembly = GetType(Addin).Assembly
+        Dim stream As Stream = thisAssembly.GetManifestResourceStream(thisAssembly.GetName().Name + "." + imageName)
+        Return New Bitmap(stream)
+    End Function
+    Public Function GetSize(ByVal control As IRibbonControl) As RibbonControlSize
+        Select Case control.Id
+            Case "gallery1" : Return RibbonControlSize.RibbonControlSizeLarge
+            Case "button1" : Return RibbonControlSize.RibbonControlSizeRegular
+        End Select
+    End Function
+    Private itemCount As Integer = 4 ' Used with GetItemCount.
+    Private itemHeight As Integer = 35 ' Used with GetItemHeight.
+    Private itemWidth As Integer = 35 ' Used with GetItemWidth.
+    Public Function GetEnabled(ByVal control As IRibbonControl) As Boolean
+        Return True
+    End Function
+    Public Function GetItemCount(ByVal control As IRibbonControl) As Integer
+        Return itemCount
+    End Function
+    Public Function getItemHeight(ByVal control As IRibbonControl) As Integer
+        Return itemHeight
+    End Function
+    Public Function getItemWidth(ByVal control As IRibbonControl) As Integer
+        Return itemWidth
+    End Function
+    Public Function getItemLabel(ByVal control As IRibbonControl, ByVal index As Integer) As String
+        Select Case index
+            Case 0 : Return "Camera"
+            Case 1 : Return "Video Player"
+            Case 2 : Return "MP3 Player"
+            Case 3 : Return "Cell Phone"
+        End Select
+    End Function
+    Public Function GetItemScreenTip(ByVal control As IRibbonControl, ByVal index As Integer) As String
+        Dim tipText As String = "This is a screentip for the item."
+        Return tipText
+    End Function
+    Public Function GetItemSuperTip(ByVal control As IRibbonControl, ByVal index As Integer) As String
+        Dim tipText As String = "This is a supertip for the item."
+        Return tipText
+    End Function
+    Public Function GetKeyTip(ByVal control As IRibbonControl) As String
+        Select Case control.Id
+            Case "gallery1" : Return "GL"
+            Case "button1" : Return "A1"
+        End Select
+    End Function
+    Public Function GetScreenTip(ByVal control As IRibbonControl) As String
+        Select Case control.Id
+            Case "gallery1" : Return "Click to open a gallery of choices."
+            Case "button1" : Return "This is a screentip for the button."
+        End Select
+    End Function
+
+    Public Sub galleryOnAction(ByVal control As IRibbonControl, ByVal selectedId As String, _
+    ByVal selectedIndex As Integer)
+        Select Case selectedIndex
+            Case 0
+                applicationObject.Range("A1").Value = "You clicked a camera."
+            Case 1
+                applicationObject.Range("A1").Value = "You clicked a video player."
+            Case 2
+                applicationObject.Range("A1").Value = "You clicked an mp3 device."
+            Case 3
+                applicationObject.Range("A1").Value = "You clicked a cell phone."
+        End Select
+    End Sub
+    Public Sub buttonOnAction(ByVal control As IRibbonControl)
+        MsgBox("Hello world.")
+    End Sub
 #End Region
 
 End Class
