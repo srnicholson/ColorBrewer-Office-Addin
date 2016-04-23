@@ -59,19 +59,18 @@ Public Class Addin
         Return ReadString("RibbonUI.xml")
     End Function
 
-    Public Sub OnAction(ByVal control As IRibbonControl)
-
+    Public Sub OnAction(ByVal control As IRibbonControl, PalId As Integer)
         Try
 
             Select Case control.Id
-                Case "customButton1"
+                Case "Palettes"
                     Select Case applicationObject.Name.ToString
                         Case "Microsoft Excel"
-                            Call Excel_Sub()
+                            Call Excel_Sub(PalId)
                         Case "Microsoft Word"
-                            Call Word_Sub()
+                            Call Word_Sub(PalId)
                         Case "Microsoft PowerPoint"
-                            Call PowerPoint_Sub()
+                            Call PowerPoint_Sub(PalId)
                         Case Else
                             MsgBox("Error: This Office application is not supported.")
                     End Select
@@ -94,49 +93,71 @@ Public Class Addin
 
 #Region "ColorBrewer Methods"
 
-    Public Sub Excel_Sub()
+    Public Sub Excel_Sub(PalId As Integer)
         Dim chart As Object
         Dim chart_type As String
         Dim series_count As Integer
         Dim ColorName As String
 
         Try
-            ColorName = "Accent"
+            ColorName = PaletteID2SName(PalId)
             chart = applicationObject.ActiveChart
             chart_type = chart.ChartType
             series_count = chart.SeriesCollection.Count
-            Call ColorBrewerFill(chart, ColorName)
+            Try
+                Call ColorBrewerFill(chart, ColorName)
+            Catch
+                'Note: This error message may not be repsentative of all types of failures.
+                MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
+            End Try
         Catch
             MsgBox("No Chart Selected")
         End Try
 
     End Sub
 
-    Public Sub Word_Sub()
+    Public Sub Word_Sub(PalId As Integer)
         Dim chart As Object
         Dim chart_type As String
         Dim series_count As Integer
+        Dim ColorName As String
+
         Try
+            ColorName = PaletteID2SName(PalId)
             chart = applicationObject.ActiveWindow.Selection.InlineShapes(1).Chart
             chart_type = chart.ChartType
             series_count = chart.SeriesCollection.Count
+            Try
+                Call ColorBrewerFill(chart, ColorName)
+            Catch
+                'Note: This error message may not be repsentative of all types of failures.
+                MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
+            End Try
         Catch
             MsgBox("No Chart Selected")
         End Try
-
     End Sub
-    Public Sub PowerPoint_Sub()
+
+    Public Sub PowerPoint_Sub(PalId As Integer)
         Dim chart As Object
         Dim chart_type As String
         Dim series_count As Integer
+        Dim ColorName As String
+
         Try
+            ColorName = PaletteID2SName(PalId)
             chart = applicationObject.ActiveWindow.Selection.ShapeRange(1).Chart
             chart_type = chart.ChartType
             series_count = chart.SeriesCollection.Count
+            Try
+                Call ColorBrewerFill(chart, ColorName)
+            Catch
+                'Note: This error message may not be repsentative of all types of failures.
+                MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
+            End Try
         Catch ex As Exception
             MsgBox("No Chart Selected")
         End Try
-
     End Sub
 
     Function GetPaletteData(pal As String, NumColors As Integer) As Array
@@ -272,8 +293,7 @@ Public Class Addin
     Public Function GetLabel(ByVal control As IRibbonControl) As String
         Dim strText As String
         Select Case control.Id
-            Case "gallery1" : strText = "Choose a Palette:"
-            Case "button1" : strText = "Button in Gallery"
+            Case "Palettes" : strText = "Choose a Palette:"
         End Select
         Return strText
     End Function
@@ -292,7 +312,7 @@ Public Class Addin
     End Function
     Public Function GetSize(ByVal control As IRibbonControl) As RibbonControlSize
         Select Case control.Id
-            Case "gallery1" : Return RibbonControlSize.RibbonControlSizeLarge
+            Case "Palettes" : Return RibbonControlSize.RibbonControlSizeLarge
         End Select
     End Function
     Public Function GetEnabled(ByVal control As IRibbonControl) As Boolean
@@ -359,30 +379,18 @@ Public Class Addin
     End Function
     Public Function GetKeyTip(ByVal control As IRibbonControl) As String
         Select Case control.Id
-            Case "gallery1" : Return "GL"
+            Case "Palettes" : Return "GL"
         End Select
     End Function
     Public Function GetScreenTip(ByVal control As IRibbonControl) As String
         Select Case control.Id
-            Case "gallery1" : Return "Click to open the palette gallery."
+            Case "Palettes" : Return "Click to open the palette gallery."
         End Select
     End Function
 
     Public Sub galleryOnAction(ByVal control As IRibbonControl, ByVal selectedId As String, _
     ByVal selectedIndex As Integer)
-        Select Case selectedIndex
-            Case 0
-                applicationObject.Range("A1").Value = selectedId
-            Case 1
-                applicationObject.Range("A1").Value = "You clicked a video player."
-            Case 2
-                applicationObject.Range("A1").Value = "You clicked an mp3 device."
-            Case 3
-                applicationObject.Range("A1").Value = "You clicked a cell phone."
-        End Select
-    End Sub
-    Public Sub buttonOnAction(ByVal control As IRibbonControl)
-        MsgBox("Hello world.")
+        OnAction(control, selectedIndex)
     End Sub
 #End Region
 
