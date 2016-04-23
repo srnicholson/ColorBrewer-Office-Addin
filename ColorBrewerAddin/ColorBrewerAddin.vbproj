@@ -155,15 +155,21 @@
   <ItemGroup>
     <EmbeddedResource Include="Palettes.xml" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <EmbeddedResource Include="internetconnection.bmp" />
+    <EmbeddedResource Include="Resources\Accent.png" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="video.bmp" />
-    <EmbeddedResource Include="camera.bmp" />
+    <EmbeddedResource Include="Resources\Blues.png" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Resources\" />
+    <EmbeddedResource Include="Resources\BrBG.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\BuGn.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\BuPu.png" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.VisualBasic.Targets" />
   <PropertyGroup>

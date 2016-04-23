@@ -9,8 +9,7 @@
         </group>
         <group id="group2" label="Demo Group">
           <gallery id="gallery1"
-             columns="2"
-             rows="2"
+             columns="1"
              getEnabled="GetEnabled"
              getScreentip="GetScreenTip"
              supertip="This is the super tip."
@@ -19,7 +18,7 @@
              getShowLabel="GetShowLabel"
              getLabel="GetLabel"
              getSize="GetSize"
-             image="internetconnection.bmp"
+             imageMso="ChartStylesGallery"
              getItemCount="GetItemCount"
              getItemHeight="GetItemHeight"
              getItemWidth="GetItemWidth"
@@ -28,10 +27,10 @@
              getItemScreentip="GetItemScreenTip"
              getItemSupertip="GetItemSuperTip"
              onAction="galleryOnAction" >
-            <item id="item1" />
-            <item id="item2" />
-            <item id="item3" />
-            <item id="item4" />
+            <item id="Accent" />
+            <item id="Blues" />
+            <item id="BrBG" />
+            <item id="BuGn" />
             <button id="button1" getLabel="GetLabel"
                onAction="buttonOnAction"
                imageMso="HappyFace" />

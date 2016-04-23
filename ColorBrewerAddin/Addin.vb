@@ -269,7 +269,7 @@ Public Class Addin
     Public Function GetLabel(ByVal control As IRibbonControl) As String
         Dim strText As String
         Select Case control.Id
-            Case "gallery1" : strText = "Select a Device:"
+            Case "gallery1" : strText = "Choose a Palette:"
             Case "button1" : strText = "Button in Gallery"
         End Select
         Return strText
@@ -283,9 +283,10 @@ Public Class Addin
     Public Function GetItemImage(ByVal control As IRibbonControl, ByVal itemIndex As Integer) As Bitmap
         Dim imageName As String
         Select Case (itemIndex)
-            Case 0 : imageName = "camera.bmp"
-            Case 1 : imageName = "video.bmp"
-            Case 2 : imageName = "mp3device.bmp"
+            Case 0 : imageName = "Accent.png"
+            Case 1 : imageName = "Blues.png"
+            Case 2 : imageName = "BrBG.png"
+            Case 3 : imageName = "BuGn.png"
         End Select
 
         Dim thisAssembly As Assembly = GetType(Addin).Assembly
@@ -300,7 +301,7 @@ Public Class Addin
     End Function
     Private itemCount As Integer = 4 ' Used with GetItemCount.
     Private itemHeight As Integer = 35 ' Used with GetItemHeight.
-    Private itemWidth As Integer = 35 ' Used with GetItemWidth.
+    Private itemWidth As Integer = 350 ' Used with GetItemWidth.
     Public Function GetEnabled(ByVal control As IRibbonControl) As Boolean
         Return True
     End Function
@@ -315,10 +316,10 @@ Public Class Addin
     End Function
     Public Function getItemLabel(ByVal control As IRibbonControl, ByVal index As Integer) As String
         Select Case index
-            Case 0 : Return "Camera"
-            Case 1 : Return "Video Player"
-            Case 2 : Return "MP3 Player"
-            Case 3 : Return "Cell Phone"
+            Case 0 : Return "Accent"
+            Case 1 : Return "Blues"
+            Case 2 : Return "BrBG"
+            Case 3 : Return "BuGn"
         End Select
     End Function
     Public Function GetItemScreenTip(ByVal control As IRibbonControl, ByVal index As Integer) As String
