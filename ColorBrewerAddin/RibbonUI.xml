@@ -31,9 +31,37 @@
             <item id="Blues" />
             <item id="BrBG" />
             <item id="BuGn" />
-            <button id="button1" getLabel="GetLabel"
-               onAction="buttonOnAction"
-               imageMso="HappyFace" />
+            <item id="BuPu" />
+            <item id="Dark2" />
+            <item id="GnBu" />
+            <item id="Greens" />
+            <item id="Greys" />
+            <item id="Oranges" />
+            <item id="OrRd" />
+            <item id="Paired" />
+            <item id="Pastel1" />
+            <item id="Pastel2" />
+            <item id="PiYG" />
+            <item id="PRGn" />
+            <item id="PuBu" />
+            <item id="PuBuGn" />
+            <item id="PuOr" />
+            <item id="PuRd" />
+            <item id="Purples" />
+            <item id="RdBu" />
+            <item id="RdGy" />
+            <item id="RdPu" />
+            <item id="Reds" />
+            <item id="RdYlBu" />
+            <item id="RdYlGn" />
+            <item id="Set1" />
+            <item id="Set2" />
+            <item id="Set3" />
+            <item id="Spectral" />
+            <item id="YlGn" />
+            <item id="YlGnBu" />
+            <item id="YlOrBr" />
+            <item id="YlOrRd" />
           </gallery>
         </group>
       </tab>

@@ -261,6 +261,9 @@ Public Class Addin
 #End Region
 
 #Region "Gallery Callbacks"
+    Private itemCount As Integer = 35 ' Used with GetItemCount.
+    Private itemHeight As Integer = 55 ' Used with GetItemHeight.
+    Private itemWidth As Integer = 455 ' Used with GetItemWidth.
     Public Function LoadImage(ByVal imageName As String) As Bitmap
         Dim thisAssembly As Assembly = GetType(Addin).Assembly
         Dim stream As Stream = thisAssembly.GetManifestResourceStream(thisAssembly.GetName().Name + "." + imageName)
@@ -282,13 +285,7 @@ Public Class Addin
     End Function
     Public Function GetItemImage(ByVal control As IRibbonControl, ByVal itemIndex As Integer) As Bitmap
         Dim imageName As String
-        Select Case (itemIndex)
-            Case 0 : imageName = "Accent.png"
-            Case 1 : imageName = "Blues.png"
-            Case 2 : imageName = "BrBG.png"
-            Case 3 : imageName = "BuGn.png"
-        End Select
-
+        imageName = PaletteID2SName(itemIndex) & ".png"
         Dim thisAssembly As Assembly = GetType(Addin).Assembly
         Dim stream As Stream = thisAssembly.GetManifestResourceStream(thisAssembly.GetName().Name + "." + imageName)
         Return New Bitmap(stream)
@@ -296,12 +293,8 @@ Public Class Addin
     Public Function GetSize(ByVal control As IRibbonControl) As RibbonControlSize
         Select Case control.Id
             Case "gallery1" : Return RibbonControlSize.RibbonControlSizeLarge
-            Case "button1" : Return RibbonControlSize.RibbonControlSizeRegular
         End Select
     End Function
-    Private itemCount As Integer = 4 ' Used with GetItemCount.
-    Private itemHeight As Integer = 35 ' Used with GetItemHeight.
-    Private itemWidth As Integer = 350 ' Used with GetItemWidth.
     Public Function GetEnabled(ByVal control As IRibbonControl) As Boolean
         Return True
     End Function
@@ -314,12 +307,46 @@ Public Class Addin
     Public Function getItemWidth(ByVal control As IRibbonControl) As Integer
         Return itemWidth
     End Function
-    Public Function getItemLabel(ByVal control As IRibbonControl, ByVal index As Integer) As String
+    Public Function getItemLabel(ByVal control As IRibbonControl, ByVal id As String) As String
+        Return PaletteID2SName(id)
+    End Function
+    Function PaletteID2SName(index As Integer) As String
         Select Case index
             Case 0 : Return "Accent"
             Case 1 : Return "Blues"
             Case 2 : Return "BrBG"
             Case 3 : Return "BuGn"
+            Case 4 : Return "BuPu"
+            Case 5 : Return "Dark2"
+            Case 6 : Return "GnBu"
+            Case 7 : Return "Greens"
+            Case 8 : Return "Greys"
+            Case 9 : Return "Oranges"
+            Case 10 : Return "OrRd"
+            Case 11 : Return "Paired"
+            Case 12 : Return "Pastel1"
+            Case 13 : Return "Pastel2"
+            Case 14 : Return "PiYG"
+            Case 15 : Return "PRGn"
+            Case 16 : Return "PuBu"
+            Case 17 : Return "PuBuGn"
+            Case 18 : Return "PuOr"
+            Case 19 : Return "PuRd"
+            Case 20 : Return "Purples"
+            Case 21 : Return "RdBu"
+            Case 22 : Return "RdGy"
+            Case 23 : Return "RdPu"
+            Case 24 : Return "Reds"
+            Case 25 : Return "RdYlBu"
+            Case 26 : Return "RdYlGn"
+            Case 27 : Return "Set1"
+            Case 28 : Return "Set2"
+            Case 29 : Return "Set3"
+            Case 30 : Return "Spectral"
+            Case 31 : Return "YlGn"
+            Case 32 : Return "YlGnBu"
+            Case 33 : Return "YlOrBr"
+            Case 34 : Return "YlOrRd"
         End Select
     End Function
     Public Function GetItemScreenTip(ByVal control As IRibbonControl, ByVal index As Integer) As String
@@ -333,13 +360,11 @@ Public Class Addin
     Public Function GetKeyTip(ByVal control As IRibbonControl) As String
         Select Case control.Id
             Case "gallery1" : Return "GL"
-            Case "button1" : Return "A1"
         End Select
     End Function
     Public Function GetScreenTip(ByVal control As IRibbonControl) As String
         Select Case control.Id
-            Case "gallery1" : Return "Click to open a gallery of choices."
-            Case "button1" : Return "This is a screentip for the button."
+            Case "gallery1" : Return "Click to open the palette gallery."
         End Select
     End Function
 
@@ -347,7 +372,7 @@ Public Class Addin
     ByVal selectedIndex As Integer)
         Select Case selectedIndex
             Case 0
-                applicationObject.Range("A1").Value = "You clicked a camera."
+                applicationObject.Range("A1").Value = selectedId
             Case 1
                 applicationObject.Range("A1").Value = "You clicked a video player."
             Case 2
