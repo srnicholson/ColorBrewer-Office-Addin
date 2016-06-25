@@ -50,7 +50,7 @@ Public Class Addin
             reader.Close()
             PalettesDataTable = PalettesDataSet.Tables(0)
         Catch e As Exception
-            MsgBox(e.Message)
+            MsgBox(e.ToString)
         End Try
     End Sub
 #Region "IRibbonExtensibility Members"
@@ -106,12 +106,13 @@ Public Class Addin
             series_count = chart.SeriesCollection.Count
             Try
                 Call ColorBrewerFill(chart, ColorName)
-            Catch
+            Catch e As Exception
                 'Note: This error message may not be repsentative of all types of failures.
-                MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
+                MsgBox(e.ToString)
+                'MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
             End Try
         Catch
-            MsgBox("No Chart Selected")
+            MsgBox("No Chart Selected.")
         End Try
 
     End Sub
@@ -162,12 +163,12 @@ Public Class Addin
 
     Function GetPaletteData(pal As String, NumColors As Integer) As Array
         Dim filter As String
-        filter = "[C] = '" + pal + "' AND [N] = " + NumColors.ToString
+        filter = "[C] = '" + pal + "' AND [N] = '" + NumColors.ToString + "'"
         Try
             Return PalettesDataTable.Select(filter)
         Catch e As Exception
             MsgBox(e.Message)
-            Return {} 'TODO: Make this an empty array
+            Return PalettesDataTable.Select 'TODO: Make this an empty array
         End Try
     End Function
 
@@ -182,9 +183,12 @@ Public Class Addin
                 'Chart types enumerated here: https://msdn.microsoft.com/en-us/library/office/ff838409.aspx
                 Case XlChartType.xlXYScatter, XlChartType.xlXYScatterLines, XlChartType.xlXYScatterLinesNoMarkers, XlChartType.xlXYScatterSmooth, XlChartType.xlRadarMarkers
                     'Points, Lines optional Case
+                    'TO DO: For scatterplots, change fill or line color depending on type of point (line-type vs shape type)
+                    'Otherwise everything changes to squares.
                     palette = GetPaletteData(pal, series_count)
                     For i = 1 To series_count
                         rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
+
                         With .SeriesCollection(i)
                             .MarkerForegroundColor = rgb_color
                             .MarkerBackgroundColor = rgb_color
