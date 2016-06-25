@@ -184,11 +184,10 @@ Public Class Addin
                 Case XlChartType.xlXYScatter, XlChartType.xlXYScatterLines, XlChartType.xlXYScatterLinesNoMarkers, XlChartType.xlXYScatterSmooth, XlChartType.xlRadarMarkers
                     'Points, Lines optional Case
                     'TO DO: For scatterplots, change fill or line color depending on type of point (line-type vs shape type)
-                    'Otherwise everything changes to squares.
+                    'Otherwise everything changes to squares. UPDATE: may not be possible due to unhelpful "Automatic" property-- need a way to return the actual MarkerStyle
                     palette = GetPaletteData(pal, series_count)
                     For i = 1 To series_count
                         rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
-
                         With .SeriesCollection(i)
                             .MarkerForegroundColor = rgb_color
                             .MarkerBackgroundColor = rgb_color
