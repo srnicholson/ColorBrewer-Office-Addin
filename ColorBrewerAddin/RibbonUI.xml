@@ -3,11 +3,8 @@
   <ribbon>
     <tabs>
       <tab id="ColorBrewer" label="ColorBrewer">
-        <group id="group1" label="Example">
-          <button id="customButton1" label="Button1" imageMso="HappyFace" size="large" onAction="OnAction" />
-          <button id="customButton2" label="Button2" imageMso="HappyFace" size="large" onAction="OnAction" />
-        </group>
-        <group id="group2" label="Palettes">
+        <group id="group1">
+          <button id="About" label="About" imageMso="Info" size="large" onAction="OnAction" />
           <gallery id="Palettes"
              columns="1"
              getEnabled="GetEnabled"
@@ -63,6 +60,9 @@
             <item id="YlOrBr" />
             <item id="YlOrRd" />
           </gallery>
+          <button id="Reverse_color_order" label="Reverse Color Order" imageMso="DiagramReverseClassic" size="large" onAction="OnAction" />
+          <button id="Undo" label="Undo" imageMso="Undo" size="large" onAction="OnAction" getEnabled ="GetEnabled" />
+          <button id="Help" label="Help" imageMso="Help" size="large" onAction="OnAction" />
         </group>
       </tab>
     </tabs>

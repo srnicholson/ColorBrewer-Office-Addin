@@ -59,10 +59,11 @@ Public Class Addin
         Return ReadString("RibbonUI.xml")
     End Function
 
-    Public Sub OnAction(ByVal control As IRibbonControl, PalId As Integer)
+    Public Sub OnAction(ByVal control As IRibbonControl, Optional ByVal PalId As Integer = 0)
         Try
-
             Select Case control.Id
+                Case "About"
+                    MsgBox("Here is some information about the ColorBrewer Add-in.")
                 Case "Palettes"
                     Select Case applicationObject.Name.ToString
                         Case "Microsoft Excel"
@@ -74,9 +75,12 @@ Public Class Addin
                         Case Else
                             MsgBox("Error: This Office application is not supported.")
                     End Select
-
-                Case "customButton2"
-                    MsgBox("This is the second sample button.")
+                Case "Reverse_color_order"
+                    MsgBox("This is the reverse order button.")
+                Case "Undo"
+                    MsgBox("This is the undo button.")
+                Case "Help"
+                    MsgBox("This is the help button.")
                 Case Else
                     MsgBox("Unkown Control Id: " + control.Id, , "ColorBrewer Office Addin")
             End Select
@@ -88,7 +92,6 @@ Public Class Addin
         End Try
 
     End Sub
-
 #End Region
 
 #Region "ColorBrewer Methods"
@@ -259,6 +262,10 @@ Public Class Addin
         '3) "Inverse" to get sequence in opposite direction
         '4) Option to install all palettes as xml Themes
     End Sub
+
+    Sub ReverseColorOrder(ByVal chart As Object)
+        'Reverse Color Order code goes here
+    End Sub
 #End Region
 
 #Region "XML Methods"
@@ -286,8 +293,8 @@ Public Class Addin
 
 #Region "Gallery Callbacks"
     Private itemCount As Integer = 35 ' Used with GetItemCount.
-    Private itemHeight As Integer = 55 ' Used with GetItemHeight.
-    Private itemWidth As Integer = 455 ' Used with GetItemWidth.
+    Private itemHeight As Integer = 22 ' Used with GetItemHeight.
+    Private itemWidth As Integer = 182 ' Used with GetItemWidth.
     Public Function LoadImage(ByVal imageName As String) As Bitmap
         Dim thisAssembly As Assembly = GetType(Addin).Assembly
         Dim stream As Stream = thisAssembly.GetManifestResourceStream(thisAssembly.GetName().Name + "." + imageName)
@@ -319,7 +326,14 @@ Public Class Addin
         End Select
     End Function
     Public Function GetEnabled(ByVal control As IRibbonControl) As Boolean
-        Return True
+        Select Case control.Id
+            Case "Undo"
+                Return False
+            Case "Palettes"
+                Return True
+            Case Else
+                Return True
+        End Select
     End Function
     Public Function GetItemCount(ByVal control As IRibbonControl) As Integer
         Return itemCount
