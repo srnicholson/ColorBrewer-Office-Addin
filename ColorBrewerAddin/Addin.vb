@@ -178,9 +178,11 @@ Public Class Addin
     Sub ColorBrewerFill(ByVal chart As Object, ByVal pal As String)
         Dim palette As Array
         Dim series_count As Integer
-        Dim rgb_color As Integer
+        Dim rgb_color As Long
         Dim i As Integer
+        Dim old_colors As New ArrayList
         With chart
+            old_colors = GetChartRGBs(chart)
             series_count = .SeriesCollection.Count
             Select Case .ChartType
                 'Chart types enumerated here: https://msdn.microsoft.com/en-us/library/office/ff838409.aspx
@@ -192,6 +194,7 @@ Public Class Addin
                     For i = 1 To series_count
                         rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                         With .SeriesCollection(i)
+                            MsgBox("Changing color: " & old_colors(i - 1) & " in series " & i & ".")
                             .MarkerForegroundColor = rgb_color
                             .MarkerBackgroundColor = rgb_color
                             If .Format.Line.Visible = True Then
@@ -266,6 +269,45 @@ Public Class Addin
     Sub ReverseColorOrder(ByVal chart As Object)
         'Reverse Color Order code goes here
     End Sub
+
+    Function GetChartRGBs(ByVal chart As Object)
+        'NOT FINISHED! (SEE BELOW)
+        'Returns ArrayList of RGB (BGR?) values corresponding to each series in the chart
+        'Based on the brilliant solution by David Zemens on Stack Overflow here: http://stackoverflow.com/a/25826428
+        '''Dim temp_chart As Object
+        '''Dim chart_index As Long
+        Dim chtType As Long
+        Dim colors As New ArrayList
+
+        ''''OLD METHOD'''''
+        ''''create temporary chart
+        '''chart_index = chart.Parent.Index
+        '''chart.Parent.Copy()
+        ''''This may need to vary based on Application (Excel v Word v Powerpoint)
+        '''applicationObject.ActiveWindow.ActiveSheet.Paste()
+
+        '''temp_chart = applicationObject.ActiveChart
+
+        chtType = chart.ChartType
+        'Temporarily change chart type to "column" in order to extract RGB values
+        'TO DO: Need to add logic so that this ONLY changes to column plot IF the series fill type is automatic
+        'Otherwise, custom colors (such as from a previous ColorBrewer run) will be lost.
+        chart.ChartType = 51
+
+        'Get RGB values for each series
+        For Each srs In chart.SeriesCollection
+            colors.Add(srs.Format.Fill.ForeColor.RGB)
+        Next
+
+        chart.ChartType = chtType
+
+        ''''delete the temporary chart
+        '''temp_chart.Parent.Delete()
+        ''''This may also need to vary based on Application (Excel v Word v Powerpoint)
+        '''applicationObject.ActiveWindow.ActiveSheet.ChartObjects(chart_index).Activate()
+
+        Return colors
+    End Function
 #End Region
 
 #Region "XML Methods"
