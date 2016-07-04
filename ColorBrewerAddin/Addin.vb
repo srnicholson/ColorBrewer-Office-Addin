@@ -247,25 +247,22 @@ Public Class Addin
                     Next
                 Case XlChartType.xlSurface
                     'Surface Case
-                    Dim old_major_unit As Double
 
-                    old_major_unit = .Axes(2).MajorUnit
-                    MsgBox(old_major_unit)
-                    'old_colors = GetChartRGBs(chart, XlChartType.xlSurface)
+                    old_colors = GetChartRGBs(chart, XlChartType.xlSurface)
+
                     'TO DO: This "With" statement is application specific
-                    With applicationObject.ActiveWindow.ActiveSheet.ChartObjects(chart_index).Chart
+                    With .Legend
                         'TODO: If Legend doesn't exist, display it temporarily to change colors
                         '.HasLegend = True
 
-                        'Restore original major unit
-                        .Axes(2).MajorUnit = old_major_unit
+                        Debug.Print("current major unit =" & chart.Axes(2).MajorUnit) 'Errors if this statement is commented out...race condition?
 
-                        MsgBox(.Legend.LegendEntries.Count)  'WHY IS THIS ONLY 2 and not 5????
-                        palette = GetPaletteData(pal, .Legend.LegendEntries.Count)
-                        For i = 1 To .Legend.LegendEntries.Count
-                            'MsgBox("Changing color: " & old_colors(i - 1) & " in legend " & i & ".")
+                        palette = GetPaletteData(pal, .LegendEntries.Count)
+
+                        For i = 1 To .LegendEntries.Count
+                            MsgBox("Changing color: " & old_colors(i - 1) & " in legend " & i & ".")
                             rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
-                            .Legend.LegendEntries(i).LegendKey.Interior.Color = rgb_color
+                            .LegendEntries(i).LegendKey.Interior.Color = rgb_color
                         Next
                     End With
                 Case XlChartType.xlSurfaceWireframe, XlChartType.xlSurfaceTopViewWireframe
@@ -292,7 +289,7 @@ Public Class Addin
         'Reverse Color Order code goes here
     End Sub
 
-    Function GetChartRGBs(ByVal chart As Object, ByVal type As XlChartType) As ArrayList
+    Private Function GetChartRGBs(ByVal chart As Object, ByVal type As XlChartType) As ArrayList
         'NOT FINISHED! (SEE BELOW)
         'Returns ArrayList of RGB (BGR?) values corresponding to each series in the chart
         'Based on the brilliant solution by David Zemens on Stack Overflow here: http://stackoverflow.com/a/25826428
@@ -332,7 +329,6 @@ Public Class Addin
 
         'ONLY changes to column plot IF the series fill type is automatic
         'Otherwise, custom colors (such as from a previous ColorBrewer run) will be lost.
-        MsgBox(fill_value)
         If fill_value <= 0 Then
             'Temporarily change chart type to "column" in order to extract automatic RGB values
             chart.ChartType = 51
