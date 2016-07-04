@@ -67,16 +67,25 @@ Public Class Addin
                 Case "Palettes"
                     Select Case applicationObject.Name.ToString
                         Case "Microsoft Excel"
-                            Call Excel_Sub(PalId)
+                            Call Excel_Sub(PalId, False)
                         Case "Microsoft Word"
-                            Call Word_Sub(PalId)
+                            Call Word_Sub(PalId, False)
                         Case "Microsoft PowerPoint"
-                            Call PowerPoint_Sub(PalId)
+                            Call PowerPoint_Sub(PalId, False)
                         Case Else
                             MsgBox("Error: This Office application is not supported.")
                     End Select
                 Case "Reverse_color_order"
-                    MsgBox("This is the reverse order button.")
+                    Select Case applicationObject.Name.ToString
+                        Case "Microsoft Excel"
+                            Call Excel_Sub(PalId, True)
+                        Case "Microsoft Word"
+                            Call Word_Sub(PalId, True)
+                        Case "Microsoft PowerPoint"
+                            Call PowerPoint_Sub(PalId, True)
+                        Case Else
+                            MsgBox("Error: This Office application is not supported.")
+                    End Select
                 Case "Undo"
                     MsgBox("This is the undo button.")
                 Case "Help"
@@ -96,7 +105,7 @@ Public Class Addin
 
 #Region "ColorBrewer Methods"
 
-    Public Sub Excel_Sub(PalId As Integer)
+    Public Sub Excel_Sub(PalId As Integer, reverse As Boolean)
         Dim chart As Object
         Dim chart_type As String
         Dim series_count As Integer
@@ -108,7 +117,7 @@ Public Class Addin
             chart_type = chart.ChartType
             series_count = chart.SeriesCollection.Count
             Try
-                Call ColorBrewerFill(chart, ColorName)
+                Call ColorBrewerFill(chart, ColorName, reverse)
             Catch e As Exception
                 'Note: This error message may not be repsentative of all types of failures.
                 MsgBox(e.ToString)
@@ -120,7 +129,7 @@ Public Class Addin
 
     End Sub
 
-    Public Sub Word_Sub(PalId As Integer)
+    Public Sub Word_Sub(PalId As Integer, reverse As Boolean)
         Dim chart As Object
         Dim chart_type As String
         Dim series_count As Integer
@@ -132,7 +141,7 @@ Public Class Addin
             chart_type = chart.ChartType
             series_count = chart.SeriesCollection.Count
             Try
-                Call ColorBrewerFill(chart, ColorName)
+                Call ColorBrewerFill(chart, ColorName, reverse)
             Catch
                 'Note: This error message may not be repsentative of all types of failures.
                 MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
@@ -142,7 +151,7 @@ Public Class Addin
         End Try
     End Sub
 
-    Public Sub PowerPoint_Sub(PalId As Integer)
+    Public Sub PowerPoint_Sub(PalId As Integer, reverse As Boolean)
         Dim chart As Object
         Dim chart_type As String
         Dim series_count As Integer
@@ -154,7 +163,7 @@ Public Class Addin
             chart_type = chart.ChartType
             series_count = chart.SeriesCollection.Count
             Try
-                Call ColorBrewerFill(chart, ColorName)
+                Call ColorBrewerFill(chart, ColorName, reverse)
             Catch
                 'Note: This error message may not be repsentative of all types of failures.
                 MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
@@ -175,16 +184,14 @@ Public Class Addin
         End Try
     End Function
 
-    Sub ColorBrewerFill(ByVal chart As Object, ByVal pal As String)
+    Sub ColorBrewerFill(ByVal chart As Object, ByVal pal As String, ByVal reverse As Boolean)
         Dim palette As Array
         Dim series_count As Integer
         Dim rgb_color As Long
         Dim i As Integer
         Dim old_colors As New ArrayList
-        Dim chart_index As Integer
 
         With chart
-            chart_index = chart.Parent.Index
             series_count = .SeriesCollection.Count
             Select Case .ChartType
                 'Chart types enumerated here: https://msdn.microsoft.com/en-us/library/office/ff838409.aspx
@@ -192,12 +199,19 @@ Public Class Addin
                     'Points, Lines optional Case
                     'TO DO: For scatterplots, change fill or line color depending on type of point (line-type vs shape type)
                     'Otherwise everything changes to squares. UPDATE: may not be possible due to unhelpful "Automatic" property-- need a way to return the actual MarkerStyle
-                    palette = GetPaletteData(pal, series_count)
+                    If Not reverse Then
+                        palette = GetPaletteData(pal, series_count)
+                    End If
+
                     old_colors = GetChartRGBs(chart, XlChartType.xlXYScatter)
                     For i = 1 To series_count
-                        rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
+                        If reverse Then
+                            rgb_color = old_colors(series_count - i)
+                        Else
+                            rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
+                        End If
                         With .SeriesCollection(i)
-                            MsgBox("Changing color: " & old_colors(i - 1) & " in series " & i & ".")
+                            'MsgBox("Changing color: " & old_colors(i - 1) & " in series " & i & ".")
                             .MarkerForegroundColor = rgb_color
                             .MarkerBackgroundColor = rgb_color
                             If .Format.Line.Visible = True Then
@@ -207,22 +221,36 @@ Public Class Addin
                     Next
                 Case XlChartType.xlLine, XlChartType.xlRadar
                     'Line Only Case
-                    palette = GetPaletteData(pal, series_count)
-                    old_colors = GetChartRGBs(chart, XlChartType.xlLine)
+                    If Not reverse Then
+                        palette = GetPaletteData(pal, series_count)
+                    Else
+                        old_colors = GetChartRGBs(chart, XlChartType.xlLine)
+                    End If
                     For i = 1 To series_count
-                        MsgBox("Changing color: " & old_colors(i - 1) & " in series " & i & ".")
-                        rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
+                        'MsgBox("Changing color: " & old_colors(i - 1) & " in series " & i & ".")
+                        If reverse Then
+                            rgb_color = old_colors(series_count - i)
+                        Else
+                            rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
+                        End If
                         With .SeriesCollection(i)
                             .Format.Line.ForeColor.RGB = rgb_color
                         End With
                     Next
                 Case XlChartType.xlColumnClustered, XlChartType.xlConeCol, XlChartType.xl3DArea, XlChartType.xlAreaStacked, XlChartType.xlAreaStacked100, XlChartType.xlBubble3DEffect, XlChartType.xlPyramidBarClustered, XlChartType.xlRadarFilled
                     'Area Case
-                    palette = GetPaletteData(pal, series_count)
-                    old_colors = GetChartRGBs(chart, XlChartType.xlColumnClustered)
+                    If Not reverse Then
+                        palette = GetPaletteData(pal, series_count)
+                    Else
+                        old_colors = GetChartRGBs(chart, XlChartType.xlColumnClustered)
+                    End If
                     For i = 1 To series_count
-                        MsgBox("Changing color: " & old_colors(i - 1) & " in series " & i & ".")
-                        rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
+                        'MsgBox("Changing color: " & old_colors(i - 1) & " in series " & i & ".")
+                        If reverse Then
+                            rgb_color = old_colors(series_count - i)
+                        Else
+                            rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
+                        End If
                         With .SeriesCollection(i)
                             .Interior.Color = rgb_color
                             .Border.Color = rgb_color
@@ -231,13 +259,24 @@ Public Class Addin
                 Case XlChartType.xlDoughnut, XlChartType.xlDoughnutExploded, XlChartType.xlPie
                     'Pie Case
                     Dim j As Integer
+                    Dim counter As Integer = 0
+                    If reverse Then
+                        old_colors = GetChartRGBs(chart, XlChartType.xlPie)
+                    End If
                     For i = 1 To series_count
                         With .SeriesCollection(i)
-                            palette = GetPaletteData(pal, .Points.Count)
-                            old_colors = GetChartRGBs(chart, XlChartType.xlPie)
+                            If Not reverse Then
+                                palette = GetPaletteData(pal, .Points.Count)
+                            End If
+
                             For j = 1 To .Points.Count
-                                MsgBox("Changing color: " & old_colors((i * j) - 1) & " for series " & i & " and point " & j & ".")
-                                rgb_color = RGB(palette(j - 1)(2), palette(j - 1)(3), palette(j - 1)(4))
+                                'MsgBox("Changing color: " & old_colors((i * j) - 1) & " for series " & i & " and point " & j & ".")
+                                If reverse Then
+                                    rgb_color = old_colors(.Points.Count * series_count - counter - 1)
+                                    counter = counter + 1
+                                Else
+                                    rgb_color = RGB(palette(j - 1)(2), palette(j - 1)(3), palette(j - 1)(4))
+                                End If
                                 With .Points(j)
                                     .Interior.Color = rgb_color
                                     '.Border.Color = rgb_color
@@ -247,8 +286,11 @@ Public Class Addin
                     Next
                 Case XlChartType.xlSurface
                     'Surface Case
-
-                    old_colors = GetChartRGBs(chart, XlChartType.xlSurface)
+                    If Not reverse Then
+                        palette = GetPaletteData(pal, .Legend.LegendEntries.Count)
+                    Else
+                        old_colors = GetChartRGBs(chart, XlChartType.xlSurface)
+                    End If
 
                     'TO DO: This "With" statement is application specific
                     With .Legend
@@ -257,11 +299,13 @@ Public Class Addin
 
                         Debug.Print("current major unit =" & chart.Axes(2).MajorUnit) 'Errors if this statement is commented out...race condition?
 
-                        palette = GetPaletteData(pal, .LegendEntries.Count)
-
                         For i = 1 To .LegendEntries.Count
-                            MsgBox("Changing color: " & old_colors(i - 1) & " in legend " & i & ".")
-                            rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
+                            'MsgBox("Changing color: " & old_colors(i - 1) & " in legend " & i & ".")
+                            If reverse Then
+                                rgb_color = old_colors(.LegendEntries.Count - i)
+                            Else
+                                rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
+                            End If
                             .LegendEntries(i).LegendKey.Interior.Color = rgb_color
                         Next
                     End With
@@ -310,6 +354,7 @@ Public Class Addin
         '''temp_chart = applicationObject.ActiveChart
 
         chtType = chart.ChartType
+        colors.Clear()
 
         'Select correct SeriesCollection fill value based on xlChartType
         Select Case type
