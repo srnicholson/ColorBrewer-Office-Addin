@@ -181,8 +181,10 @@ Public Class Addin
         Dim rgb_color As Long
         Dim i As Integer
         Dim old_colors As New ArrayList
+        Dim chart_index As Integer
+
         With chart
-            old_colors = GetChartRGBs(chart)
+            chart_index = chart.Parent.Index
             series_count = .SeriesCollection.Count
             Select Case .ChartType
                 'Chart types enumerated here: https://msdn.microsoft.com/en-us/library/office/ff838409.aspx
@@ -191,6 +193,7 @@ Public Class Addin
                     'TO DO: For scatterplots, change fill or line color depending on type of point (line-type vs shape type)
                     'Otherwise everything changes to squares. UPDATE: may not be possible due to unhelpful "Automatic" property-- need a way to return the actual MarkerStyle
                     palette = GetPaletteData(pal, series_count)
+                    old_colors = GetChartRGBs(chart, XlChartType.xlXYScatter)
                     For i = 1 To series_count
                         rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                         With .SeriesCollection(i)
@@ -205,7 +208,9 @@ Public Class Addin
                 Case XlChartType.xlLine, XlChartType.xlRadar
                     'Line Only Case
                     palette = GetPaletteData(pal, series_count)
+                    old_colors = GetChartRGBs(chart, XlChartType.xlLine)
                     For i = 1 To series_count
+                        MsgBox("Changing color: " & old_colors(i - 1) & " in series " & i & ".")
                         rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                         With .SeriesCollection(i)
                             .Format.Line.ForeColor.RGB = rgb_color
@@ -214,7 +219,9 @@ Public Class Addin
                 Case XlChartType.xlColumnClustered, XlChartType.xlConeCol, XlChartType.xl3DArea, XlChartType.xlAreaStacked, XlChartType.xlAreaStacked100, XlChartType.xlBubble3DEffect, XlChartType.xlPyramidBarClustered, XlChartType.xlRadarFilled
                     'Area Case
                     palette = GetPaletteData(pal, series_count)
+                    old_colors = GetChartRGBs(chart, XlChartType.xlColumnClustered)
                     For i = 1 To series_count
+                        MsgBox("Changing color: " & old_colors(i - 1) & " in series " & i & ".")
                         rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                         With .SeriesCollection(i)
                             .Interior.Color = rgb_color
@@ -222,28 +229,43 @@ Public Class Addin
                         End With
                     Next
                 Case XlChartType.xlDoughnut, XlChartType.xlDoughnutExploded, XlChartType.xlPie
-                    Dim j As Integer
                     'Pie Case
+                    Dim j As Integer
                     For i = 1 To series_count
                         With .SeriesCollection(i)
                             palette = GetPaletteData(pal, .Points.Count)
+                            old_colors = GetChartRGBs(chart, XlChartType.xlPie)
                             For j = 1 To .Points.Count
+                                MsgBox("Changing color: " & old_colors((i * j) - 1) & " for series " & i & " and point " & j & ".")
                                 rgb_color = RGB(palette(j - 1)(2), palette(j - 1)(3), palette(j - 1)(4))
                                 With .Points(j)
                                     .Interior.Color = rgb_color
-                                    .Border.Color = rgb_color
+                                    '.Border.Color = rgb_color
                                 End With
                             Next
                         End With
                     Next
                 Case XlChartType.xlSurface
                     'Surface Case
-                    With .Legend
+                    Dim old_major_unit As Double
+
+                    old_major_unit = .Axes(2).MajorUnit
+                    MsgBox(old_major_unit)
+                    'old_colors = GetChartRGBs(chart, XlChartType.xlSurface)
+                    'TO DO: This "With" statement is application specific
+                    With applicationObject.ActiveWindow.ActiveSheet.ChartObjects(chart_index).Chart
                         'TODO: If Legend doesn't exist, display it temporarily to change colors
-                        palette = GetPaletteData(pal, .LegendEntries.Count)
-                        For i = 1 To .LegendEntries.Count
+                        '.HasLegend = True
+
+                        'Restore original major unit
+                        .Axes(2).MajorUnit = old_major_unit
+
+                        MsgBox(.Legend.LegendEntries.Count)  'WHY IS THIS ONLY 2 and not 5????
+                        palette = GetPaletteData(pal, .Legend.LegendEntries.Count)
+                        For i = 1 To .Legend.LegendEntries.Count
+                            'MsgBox("Changing color: " & old_colors(i - 1) & " in legend " & i & ".")
                             rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
-                            .LegendEntries(i).LegendKey.Interior.Color = rgb_color
+                            .Legend.LegendEntries(i).LegendKey.Interior.Color = rgb_color
                         Next
                     End With
                 Case XlChartType.xlSurfaceWireframe, XlChartType.xlSurfaceTopViewWireframe
@@ -270,7 +292,7 @@ Public Class Addin
         'Reverse Color Order code goes here
     End Sub
 
-    Function GetChartRGBs(ByVal chart As Object)
+    Function GetChartRGBs(ByVal chart As Object, ByVal type As XlChartType) As ArrayList
         'NOT FINISHED! (SEE BELOW)
         'Returns ArrayList of RGB (BGR?) values corresponding to each series in the chart
         'Based on the brilliant solution by David Zemens on Stack Overflow here: http://stackoverflow.com/a/25826428
@@ -278,6 +300,8 @@ Public Class Addin
         '''Dim chart_index As Long
         Dim chtType As Long
         Dim colors As New ArrayList
+        Dim fill_value As Long
+        Dim counter As Integer
 
         ''''OLD METHOD'''''
         ''''create temporary chart
@@ -289,15 +313,60 @@ Public Class Addin
         '''temp_chart = applicationObject.ActiveChart
 
         chtType = chart.ChartType
-        'Temporarily change chart type to "column" in order to extract RGB values
-        'TO DO: Need to add logic so that this ONLY changes to column plot IF the series fill type is automatic
-        'Otherwise, custom colors (such as from a previous ColorBrewer run) will be lost.
-        chart.ChartType = 51
 
-        'Get RGB values for each series
-        For Each srs In chart.SeriesCollection
-            colors.Add(srs.Format.Fill.ForeColor.RGB)
-        Next
+        'Select correct SeriesCollection fill value based on xlChartType
+        Select Case type
+            Case XlChartType.xlXYScatter
+                fill_value = chart.SeriesCollection(1).MarkerForegroundColor
+            Case XlChartType.xlColumnClustered
+                fill_value = chart.SeriesCollection(1).Format.Fill.ForeColor.RGB
+            Case XlChartType.xlLine
+                fill_value = chart.SeriesCollection(1).Format.Line.ForeColor.RGB
+            Case XlChartType.xlPie
+                fill_value = chart.SeriesCollection(1).Points(1).Interior.Color
+            Case XlChartType.xlSurface
+                fill_value = chart.Legend.LegendEntries(1).LegendKey.Interior.ColorIndex
+            Case Else
+                fill_value = 9999 '???
+        End Select
+
+        'ONLY changes to column plot IF the series fill type is automatic
+        'Otherwise, custom colors (such as from a previous ColorBrewer run) will be lost.
+        MsgBox(fill_value)
+        If fill_value <= 0 Then
+            'Temporarily change chart type to "column" in order to extract automatic RGB values
+            chart.ChartType = 51
+            For Each srs In chart.SeriesCollection
+                colors.Add(srs.Format.Fill.ForeColor.RGB)
+            Next
+        Else
+            Select Case type
+                Case XlChartType.xlXYScatter
+                    For Each srs In chart.SeriesCollection
+                        colors.Add(srs.MarkerForegroundColor)
+                    Next
+                Case XlChartType.xlColumnClustered
+                    For Each srs In chart.SeriesCollection
+                        colors.Add(srs.Format.Fill.ForeColor.RGB)
+                    Next
+                Case XlChartType.xlLine
+                    For Each srs In chart.SeriesCollection
+                        colors.Add(srs.Format.Line.ForeColor.RGB)
+                    Next
+                Case XlChartType.xlPie
+                    For Each srs In chart.SeriesCollection
+                        For Each point In srs.Points
+                            colors.Add(point.Interior.Color)
+                        Next
+                    Next
+                Case XlChartType.xlSurface
+                    For Each srs In chart.Legend.LegendEntries
+                        colors.Add(srs.LegendKey.Interior.Color)
+                    Next
+                Case Else
+                    MsgBox("Error: unable to extract old series colors")
+            End Select
+        End If
 
         chart.ChartType = chtType
 
