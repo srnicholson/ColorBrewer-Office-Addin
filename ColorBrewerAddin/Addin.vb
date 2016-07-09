@@ -109,22 +109,40 @@ Public Class Addin
         Dim chart As Object
         Dim chart_type As String
         Dim series_count As Integer
-        Dim ColorName As String
+        Dim color_name As String
+        Dim pos_top, pos_left As Long
 
         Try
-            ColorName = PaletteID2SName(PalId)
+            color_name = PaletteID2SName(PalId)
             chart = applicationObject.ActiveChart
+
+            'pos_top = chart.Parent.Top
+            'pos_left = chart.Parent.Left
+            'MsgBox(pos_top & ", " & pos_left)
+
+            'chart.Parent.Copy()
+            'applicationObject.ActiveWindow.ActiveSheet.Paste()
+
+            ''set chart to reference copy
+            'chart = applicationObject.ActiveChart
+
+            ''Align copy with original
+            'chart.Parent.Top = pos_top
+            'chart.Parent.Left = pos_left
+
             chart_type = chart.ChartType
             series_count = chart.SeriesCollection.Count
+
             Try
-                Call ColorBrewerFill(chart, ColorName, reverse)
+                Call ColorBrewerFill(chart, color_name, reverse)
             Catch e As Exception
                 'Note: This error message may not be repsentative of all types of failures.
                 MsgBox(e.ToString)
                 'MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
             End Try
-        Catch
-            MsgBox("No Chart Selected.")
+        Catch e As Exception
+            MsgBox(e.ToString)
+            'MsgBox("No Chart Selected.")
         End Try
 
     End Sub
@@ -133,15 +151,15 @@ Public Class Addin
         Dim chart As Object
         Dim chart_type As String
         Dim series_count As Integer
-        Dim ColorName As String
+        Dim color_name As String
 
         Try
-            ColorName = PaletteID2SName(PalId)
+            color_name = PaletteID2SName(PalId)
             chart = applicationObject.ActiveWindow.Selection.InlineShapes(1).Chart
             chart_type = chart.ChartType
             series_count = chart.SeriesCollection.Count
             Try
-                Call ColorBrewerFill(chart, ColorName, reverse)
+                Call ColorBrewerFill(chart, color_name, reverse)
             Catch
                 'Note: This error message may not be repsentative of all types of failures.
                 MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
@@ -155,15 +173,15 @@ Public Class Addin
         Dim chart As Object
         Dim chart_type As String
         Dim series_count As Integer
-        Dim ColorName As String
+        Dim color_name As String
 
         Try
-            ColorName = PaletteID2SName(PalId)
+            color_name = PaletteID2SName(PalId)
             chart = applicationObject.ActiveWindow.Selection.ShapeRange(1).Chart
             chart_type = chart.ChartType
             series_count = chart.SeriesCollection.Count
             Try
-                Call ColorBrewerFill(chart, ColorName, reverse)
+                Call ColorBrewerFill(chart, color_name, reverse)
             Catch
                 'Note: This error message may not be repsentative of all types of failures.
                 MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
@@ -189,6 +207,7 @@ Public Class Addin
         Dim series_count As Integer
         Dim rgb_color As Long
         Dim i As Integer
+        Dim pos_top, pos_left As Double
         Dim old_colors As New ArrayList
 
         With chart
@@ -234,16 +253,23 @@ Public Class Addin
                             rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                         End If
                         With .SeriesCollection(i)
+                            .Format.Line.Visible = False
+                            .Format.Line.Visible = True
                             .Format.Line.ForeColor.RGB = rgb_color
                         End With
                     Next
                 Case XlChartType.xlColumnClustered, XlChartType.xlConeCol, XlChartType.xl3DArea, XlChartType.xlAreaStacked, XlChartType.xlAreaStacked100, XlChartType.xlBubble3DEffect, XlChartType.xlPyramidBarClustered, XlChartType.xlRadarFilled
+                    Dim old_spacing As String
+                    'prevent column spacing from changing during color change
+                    old_spacing = .ChartGroups(1).Overlap
+
                     'Area Case
                     If Not reverse Then
                         palette = GetPaletteData(pal, series_count)
                     Else
                         old_colors = GetChartRGBs(chart, XlChartType.xlColumnClustered)
                     End If
+
                     For i = 1 To series_count
                         'MsgBox("Changing color: " & old_colors(i - 1) & " in series " & i & ".")
                         If reverse Then
@@ -256,6 +282,10 @@ Public Class Addin
                             .Border.Color = rgb_color
                         End With
                     Next
+
+                    'prevent column spacing from changing during color change
+                    .ChartGroups(1).Overlap = old_spacing
+
                 Case XlChartType.xlDoughnut, XlChartType.xlDoughnutExploded, XlChartType.xlPie
                     'Pie Case
                     Dim j As Integer
@@ -329,10 +359,6 @@ Public Class Addin
         '4) Option to install all palettes as xml Themes
     End Sub
 
-    Sub ReverseColorOrder(ByVal chart As Object)
-        'Reverse Color Order code goes here
-    End Sub
-
     Private Function GetChartRGBs(ByVal chart As Object, ByVal type As XlChartType) As ArrayList
         'NOT FINISHED! (SEE BELOW)
         'Returns ArrayList of RGB (BGR?) values corresponding to each series in the chart
@@ -363,7 +389,12 @@ Public Class Addin
             Case XlChartType.xlColumnClustered
                 fill_value = chart.SeriesCollection(1).Format.Fill.ForeColor.RGB
             Case XlChartType.xlLine
-                fill_value = chart.SeriesCollection(1).Format.Line.ForeColor.RGB
+                If chart.SeriesCollection(1).Format.Line.ForeColor.RGB = 16777215 Then
+                    'This appears to be what automatic line color is in Office 2007
+                    fill_value = -1
+                Else
+                    fill_value = chart.SeriesCollection(1).Format.Line.ForeColor.RGB
+                End If
             Case XlChartType.xlPie
                 fill_value = chart.SeriesCollection(1).Points(1).Interior.Color
             Case XlChartType.xlSurface
@@ -371,7 +402,6 @@ Public Class Addin
             Case Else
                 fill_value = 9999 '???
         End Select
-
         'ONLY changes to column plot IF the series fill type is automatic
         'Otherwise, custom colors (such as from a previous ColorBrewer run) will be lost.
         If fill_value <= 0 Then
@@ -418,6 +448,22 @@ Public Class Addin
 
         Return colors
     End Function
+
+    'Function GetPosition(ByVal chart As Object) As ArrayList
+    '    Dim coords As ArrayList
+    '    MsgBox("Here!")
+    '    Try
+    '        With chart
+    '            coords.Add(.Parent.Top)
+    '            coords.Add(.Parent.Left)
+    '        End With
+    '    Catch ex As Exception
+    '        MsgBox("Error in GetPosition function")
+    '    End Try
+
+    '    Return coords
+    'End Function
+
 #End Region
 
 #Region "XML Methods"
