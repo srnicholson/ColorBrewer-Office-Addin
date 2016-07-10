@@ -60,6 +60,7 @@ Public Class Addin
     End Function
 
     Public Sub OnAction(ByVal control As IRibbonControl, Optional ByVal PalId As Integer = 0)
+        applicationObject.ScreenUpdating = False 'TO DO: Make sure this doesn't cause problems on errors
         Try
             Select Case control.Id
                 Case "About"
@@ -95,11 +96,11 @@ Public Class Addin
             End Select
 
         Catch throwedException As Exception
-
+            applicationObject.ScreenUpdating = True
             MsgBox("Error: Unexpected state in ColorBrewer OnAction" + vbNewLine + "Error details: " + throwedException.Message)
 
         End Try
-
+        applicationObject.ScreenUpdating = True
     End Sub
 #End Region
 
@@ -116,19 +117,25 @@ Public Class Addin
             color_name = PaletteID2SName(PalId)
             chart = applicationObject.ActiveChart
 
-            'pos_top = chart.Parent.Top
-            'pos_left = chart.Parent.Left
-            'MsgBox(pos_top & ", " & pos_left)
+            pos_top = chart.Parent.Top
+            pos_left = chart.Parent.Left
 
-            'chart.Parent.Copy()
-            'applicationObject.ActiveWindow.ActiveSheet.Paste()
+            chart.Parent.Copy()
 
-            ''set chart to reference copy
-            'chart = applicationObject.ActiveChart
+            'Hide the old chart
+            chart.Parent.Visible = False 'TO DO: Figure out where the old charts end up and how we can get them back on an "undo"
 
-            ''Align copy with original
-            'chart.Parent.Top = pos_top
-            'chart.Parent.Left = pos_left
+            applicationObject.ActiveWindow.ActiveSheet.Paste()
+
+
+            'set "chart" to point to the new copy
+            With applicationObject.ActiveSheet
+                chart = .ChartObjects(.ChartObjects.Count).Chart
+            End With
+
+            'Align copy with original
+            chart.Parent.Top = pos_top
+            chart.Parent.Left = pos_left
 
             chart_type = chart.ChartType
             series_count = chart.SeriesCollection.Count
@@ -148,24 +155,61 @@ Public Class Addin
     End Sub
 
     Public Sub Word_Sub(PalId As Integer, reverse As Boolean)
-        Dim chart As Object
+        Dim chart, new_shape, new_chart As Object
         Dim chart_type As String
-        Dim series_count As Integer
+        Dim wrap_format, series_count As Integer
         Dim color_name As String
+        Dim pos_top, pos_left As Long
+        Dim IsShape As Boolean = False
 
         Try
             color_name = PaletteID2SName(PalId)
-            chart = applicationObject.ActiveWindow.Selection.InlineShapes(1).Chart
-            chart_type = chart.ChartType
-            series_count = chart.SeriesCollection.Count
-            Try
-                Call ColorBrewerFill(chart, color_name, reverse)
-            Catch
-                'Note: This error message may not be repsentative of all types of failures.
-                MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
-            End Try
-        Catch
-            MsgBox("No Chart Selected")
+            With applicationObject.ActiveWindow.Selection
+                'Determine if the selection is a regular shape or an inline shape
+                If .Type = 7 Then
+                    chart = .InlineShapes(1)
+                    chart = chart.ConvertToShape()
+                ElseIf .Type = 8 Then
+                    chart = .ShapeRange(1)
+                    wrap_format = chart.WrapFormat.Type
+                    IsShape = True
+                Else
+                    MsgBox("No Chart Selected") 'TO DO: Better way to handle this error?
+                End If
+            End With
+
+            pos_top = chart.Top
+            pos_left = chart.Left
+
+            new_shape = chart.Duplicate()
+
+            chart.Visible = False 'TO DO: Figure out where the old charts end up and how we can get them back on an "undo"
+
+            'Align copy with original
+            new_shape.Top = pos_top
+            new_shape.Left = pos_left
+
+            new_chart = new_shape.ConvertToInlineShape().Chart
+
+            chart_type = new_chart.ChartType
+            series_count = new_chart.SeriesCollection.Count
+
+            Call ColorBrewerFill(new_chart, color_name, reverse)
+
+            new_chart.Select() 'This needs to be there; otherwise the program coudl crash if nothing is selected
+            'TO DO: Alternative is to figure out way to disable buttons unless chart (shape or inlineshape) is selected
+
+            If IsShape Then
+                'Convert back to shape again and adjust wrap formatting
+                new_chart.Parent.ConvertToShape()
+                new_shape.WrapFormat.Type = wrap_format
+            End If
+
+        Catch e As Exception
+            MsgBox(e.ToString)
+            ''TO DO: Put these old error message is in the right spots.
+            'MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
+            'MsgBox("No Chart Selected")
         End Try
     End Sub
 
@@ -186,8 +230,9 @@ Public Class Addin
                 'Note: This error message may not be repsentative of all types of failures.
                 MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
             End Try
-        Catch ex As Exception
-            MsgBox("No Chart Selected")
+        Catch e As Exception
+            MsgBox(e.ToString)
+            'MsgBox("No Chart Selected")
         End Try
     End Sub
 
