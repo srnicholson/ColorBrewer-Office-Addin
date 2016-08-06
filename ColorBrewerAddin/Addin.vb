@@ -2,10 +2,12 @@
 Imports System.Data
 Imports Extensibility
 Imports Microsoft.Office.Core
+Imports Excel = Microsoft.Office.Interop.Excel
+Imports Word = Microsoft.Office.Interop.Word
+Imports PowerPoint = Microsoft.Office.Interop.PowerPoint
 Imports System.Reflection
 Imports System.Drawing
 Imports System.IO
-
 
 #Region " Read me for Add-in installation and setup information. "
 ' When run, the Add-in wizard prepared the registry for the Add-in.
@@ -24,8 +26,11 @@ Public Class Addin
 
     Private applicationObject As Object
     Private addInInstance As Object
+    Private appExcel As Excel.Application
+    Private appWord As Word.Application
+    Private appPowerPoint As PowerPoint.Application
     Dim PalettesDataSet As New DataSet
-    Dim PalettesDataTable As DataTable
+    Dim PalettesDataTable As System.Data.DataTable
 
     Public Sub OnBeginShutdown(ByRef custom As System.Array) Implements Extensibility.IDTExtensibility2.OnBeginShutdown
     End Sub
@@ -60,7 +65,7 @@ Public Class Addin
     End Function
 
     Public Sub OnAction(ByVal control As IRibbonControl, Optional ByVal PalId As Integer = 0)
-        applicationObject.ScreenUpdating = False 'TO DO: Make sure this doesn't cause problems on errors
+        'applicationObject.ScreenUpdating = False 'TO DO: This obscures runtime errors
         Try
             Select Case control.Id
                 Case "About"
@@ -68,27 +73,45 @@ Public Class Addin
                 Case "Palettes"
                     Select Case applicationObject.Name.ToString
                         Case "Microsoft Excel"
-                            Call Excel_Sub(PalId, False)
+                            appExcel = applicationObject
+                            Call Excel_Sub(PalId, False, False)
                         Case "Microsoft Word"
-                            Call Word_Sub(PalId, False)
+                            appWord = applicationObject
+                            Call Word_Sub(PalId, False, False)
                         Case "Microsoft PowerPoint"
-                            Call PowerPoint_Sub(PalId, False)
+                            appPowerPoint = applicationObject
+                            Call PowerPoint_Sub(PalId, False, False)
                         Case Else
                             MsgBox("Error: This Office application is not supported.")
                     End Select
                 Case "Reverse_color_order"
                     Select Case applicationObject.Name.ToString
                         Case "Microsoft Excel"
-                            Call Excel_Sub(PalId, True)
+                            appExcel = applicationObject
+                            Call Excel_Sub(PalId, True, False)
                         Case "Microsoft Word"
-                            Call Word_Sub(PalId, True)
+                            appWord = applicationObject
+                            Call Word_Sub(PalId, True, False)
                         Case "Microsoft PowerPoint"
-                            Call PowerPoint_Sub(PalId, True)
+                            appPowerPoint = applicationObject
+                            Call PowerPoint_Sub(PalId, True, False)
                         Case Else
                             MsgBox("Error: This Office application is not supported.")
                     End Select
                 Case "Undo"
-                    MsgBox("This is the undo button.")
+                    Select Case applicationObject.Name.ToString
+                        Case "Microsoft Excel"
+                            appExcel = applicationObject
+                            Call Excel_Sub(PalId, False, True)
+                        Case "Microsoft Word"
+                            appWord = applicationObject
+                            Call Word_Sub(PalId, False, True)
+                        Case "Microsoft PowerPoint"
+                            appPowerPoint = applicationObject
+                            Call PowerPoint_Sub(PalId, False, True)
+                        Case Else
+                            MsgBox("Error: This Office application is not supported.")
+                    End Select
                 Case "Help"
                     MsgBox("This is the help button.")
                 Case Else
@@ -96,7 +119,7 @@ Public Class Addin
             End Select
 
         Catch throwedException As Exception
-            applicationObject.ScreenUpdating = True
+            applicationObject.ScreenUpdating = True 'TO DO: Possible solution to screenupdating obscuring errors-- add this line to every "Catch" statement (before message box)?
             MsgBox("Error: Unexpected state in ColorBrewer OnAction" + vbNewLine + "Error details: " + throwedException.Message)
 
         End Try
@@ -106,39 +129,42 @@ Public Class Addin
 
 #Region "ColorBrewer Methods"
 
-    Public Sub Excel_Sub(PalId As Integer, reverse As Boolean)
-        Dim chart As Object
-        Dim chart_type As String
+    Public Sub Excel_Sub(ByVal PalId As Integer, ByVal reverse As Boolean, ByVal undo As Boolean)
+        Dim chart As Excel.Chart
+        Dim chartParent As Excel.ChartObject
+        Dim chart_type As Excel.XlChartType
         Dim series_count As Integer
         Dim color_name As String
-        Dim pos_top, pos_left As Long
+        Dim pos_top, pos_left As Double
 
         Try
             color_name = PaletteID2SName(PalId)
-            chart = applicationObject.ActiveChart
+            chart = appExcel.ActiveChart
+            chartParent = CType(chart.Parent, Excel.ChartObject)
 
-            pos_top = chart.Parent.Top
-            pos_left = chart.Parent.Left
+            pos_top = chartParent.Top
+            pos_left = chartParent.Left
 
-            chart.Parent.Copy()
+            chartParent.Copy()
 
             'Hide the old chart
-            chart.Parent.Visible = False 'TO DO: Figure out where the old charts end up and how we can get them back on an "undo"
+            chartParent.Visible = False 'TO DO: Figure out where the old charts end up and how we can get them back on an "undo"
 
-            applicationObject.ActiveWindow.ActiveSheet.Paste()
-
+            CType(appExcel.ActiveSheet, Excel.Worksheet).Paste()
 
             'set "chart" to point to the new copy
-            With applicationObject.ActiveSheet
-                chart = .ChartObjects(.ChartObjects.Count).Chart
+            With CType(CType(appExcel.ActiveSheet, Excel.Worksheet).ChartObjects, Excel.ChartObjects)
+                chart = CType(.Item(.Count), Excel.ChartObject).Chart
             End With
 
+            chartParent = CType(chart.Parent, Excel.ChartObject)
+
             'Align copy with original
-            chart.Parent.Top = pos_top
-            chart.Parent.Left = pos_left
+            chartParent.Top = pos_top
+            chartParent.Left = pos_left
 
             chart_type = chart.ChartType
-            series_count = chart.SeriesCollection.Count
+            series_count = CType(chart.SeriesCollection, Excel.SeriesCollection).Count
 
             Try
                 Call ColorBrewerFill(chart, color_name, reverse)
@@ -154,55 +180,89 @@ Public Class Addin
 
     End Sub
 
-    Public Sub Word_Sub(PalId As Integer, reverse As Boolean)
-        Dim chart, new_shape, new_chart As Object
-        Dim chart_type As String
-        Dim wrap_format, series_count As Integer
+    Public Sub Word_Sub(ByVal PalId As Integer, ByVal reverse As Boolean, ByVal undo As Boolean)
+        Dim old_inline As Word.InlineShape
+        Dim old_shape As Word.Shape, new_shape As Word.Shape
+        Dim new_chart As Word.Chart
+        Dim chart_type As XlChartType
+        Dim wrap_format As Word.WdWrapType
+        Dim series_count As Integer
         Dim color_name As String
-        Dim pos_top, pos_left As Long
-        Dim IsShape As Boolean = False
-
+        Dim pos_top, pos_left As Single
+        Dim IsShape As MsoTriState = MsoTriState.msoFalse
+        Dim property_name_prefix As String = "ColorBrewer_old_chart_id_"
         Try
-            color_name = PaletteID2SName(PalId)
-            With applicationObject.ActiveWindow.Selection
-                'Determine if the selection is a regular shape or an inline shape
-                If .Type = 7 Then
-                    chart = .InlineShapes(1)
-                    chart = chart.ConvertToShape()
-                ElseIf .Type = 8 Then
-                    chart = .ShapeRange(1)
-                    wrap_format = chart.WrapFormat.Type
-                    IsShape = True
-                Else
-                    MsgBox("No Chart Selected") 'TO DO: Better way to handle this error?
+            If undo Then
+                Dim prop As DocumentProperty
+                Dim final_prop As DocumentProperty
+                Dim prev_chart_id As Long
+                Dim prev_chart As Word.Shape
+                For Each prop In appWord.ActiveDocument.CustomDocumentProperties
+                    'Get most recent old_chart DocumentProperty
+                    If prop.Name.Contains(property_name_prefix) Then
+                        prev_chart_id = CType(prop.Value, Long)
+                        final_prop = prop
+                    End If
+
+                Next
+                appWord.ActiveDocument.Shapes(prev_chart_id).Visible = MsoTriState.msoTrue
+                appWord.ActiveDocument.Shapes(prev_chart_id + 1).Visible = MsoTriState.msoFalse
+                'Delete document property used to perform undo
+                final_prop.Delete()
+                'Redo functionality??
+            Else
+                color_name = PaletteID2SName(PalId)
+                With appWord.ActiveWindow.Selection
+                    'Determine if the selection is a regular shape or an inline shape
+                    If .Type = 7 Then
+                        old_inline = .InlineShapes(1)
+                        old_shape = old_inline.ConvertToShape()
+                    ElseIf .Type = 8 Then
+                        old_shape = .ShapeRange(1)
+                        wrap_format = old_shape.WrapFormat.Type
+                        IsShape = MsoTriState.msoTrue
+                    Else
+                        MsgBox("Error: No Chart Selected") 'TO DO: Better way to handle this error?
+                        Exit Sub
+                    End If
+                End With
+
+                pos_top = old_shape.Top
+                pos_left = old_shape.Left
+
+                new_shape = old_shape.Duplicate()
+
+                old_shape.Visible = MsoTriState.msoFalse 'TO DO: Figure out where the old charts end up and how we can get them back on an "undo"
+                Dim properties As DocumentProperties = CType(appWord.ActiveDocument.CustomDocumentProperties, DocumentProperties)
+                With properties
+                    Dim prop_name As String = property_name_prefix & properties.Count.ToString
+                    .Add(Name:=prop_name, LinkToContent:=False, Type:=1, Value:=old_shape.ID)
+                End With
+
+                'Align copy with original
+                new_shape.Top = pos_top
+                new_shape.Left = pos_left
+
+                new_chart = new_shape.ConvertToInlineShape().Chart
+
+                chart_type = new_chart.ChartType
+                series_count = CType(new_chart.SeriesCollection, Word.SeriesCollection).Count
+
+                Try
+                    Call ColorBrewerFill(new_chart, color_name, reverse)
+                Catch
+                    'Note: This error message may not be repsentative of all types of failures.
+                    MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
+                End Try
+
+                new_chart.Select() 'For now, this needs to be here; otherwise the program will crash if nothing is selected and a button is clicked
+                'TO DO: Alternative is to figure out way to disable buttons unless chart (shape or inlineshape) is selected
+
+                If IsShape = MsoTriState.msoTrue Then
+                    'Convert back to shape again and adjust wrap formatting
+                    CType(new_chart.Parent, Word.InlineShape).ConvertToShape()
+                    new_shape.WrapFormat.Type = wrap_format
                 End If
-            End With
-
-            pos_top = chart.Top
-            pos_left = chart.Left
-
-            new_shape = chart.Duplicate()
-
-            chart.Visible = False 'TO DO: Figure out where the old charts end up and how we can get them back on an "undo"
-
-            'Align copy with original
-            new_shape.Top = pos_top
-            new_shape.Left = pos_left
-
-            new_chart = new_shape.ConvertToInlineShape().Chart
-
-            chart_type = new_chart.ChartType
-            series_count = new_chart.SeriesCollection.Count
-
-            Call ColorBrewerFill(new_chart, color_name, reverse)
-
-            new_chart.Select() 'This needs to be there; otherwise the program coudl crash if nothing is selected
-            'TO DO: Alternative is to figure out way to disable buttons unless chart (shape or inlineshape) is selected
-
-            If IsShape Then
-                'Convert back to shape again and adjust wrap formatting
-                new_chart.Parent.ConvertToShape()
-                new_shape.WrapFormat.Type = wrap_format
             End If
 
         Catch e As Exception
@@ -213,26 +273,39 @@ Public Class Addin
         End Try
     End Sub
 
-    Public Sub PowerPoint_Sub(PalId As Integer, reverse As Boolean)
-        Dim chart As Object
-        Dim chart_type As String
+    Public Sub PowerPoint_Sub(ByVal PalId As Integer, ByVal reverse As Boolean, ByVal undo As Boolean)
+        Dim old_shape, new_shape As PowerPoint.Shape
+        Dim chart_type As XlChartType
+        Dim pos_top, pos_left As Single
         Dim series_count As Integer
         Dim color_name As String
-
         Try
             color_name = PaletteID2SName(PalId)
-            chart = applicationObject.ActiveWindow.Selection.ShapeRange(1).Chart
-            chart_type = chart.ChartType
-            series_count = chart.SeriesCollection.Count
+            old_shape = appPowerPoint.ActiveWindow.Selection.ShapeRange(1)
+
+            'Get properties of old chart shape
+            chart_type = old_shape.Chart.ChartType
+            pos_top = old_shape.Top
+            pos_left = old_shape.Left
+            series_count = CType(old_shape.Chart.SeriesCollection, PowerPoint.SeriesCollection).Count
+
+            new_shape = old_shape.Duplicate()(1)
+            new_shape.Select()
+
+            old_shape.Visible = MsoTriState.msoFalse 'TO DO: Figure out where the old charts end up and how we can get them back on an "undo"
+
+            'Align copy with original
+            new_shape.Top = pos_top
+            new_shape.Left = pos_left
+
             Try
-                Call ColorBrewerFill(chart, color_name, reverse)
+                Call ColorBrewerFill(new_shape.Chart, color_name, reverse)
             Catch
                 'Note: This error message may not be repsentative of all types of failures.
                 MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
             End Try
         Catch e As Exception
             MsgBox(e.ToString)
-            'MsgBox("No Chart Selected")
         End Try
     End Sub
 
@@ -242,12 +315,13 @@ Public Class Addin
         Try
             Return PalettesDataTable.Select(filter)
         Catch e As Exception
-            MsgBox(e.Message)
-            Return PalettesDataTable.Select 'TODO: Make this an empty array
+            MsgBox("Error: Invalid GetPaletteData function query")
+            Return Nothing
         End Try
     End Function
 
-    Sub ColorBrewerFill(ByVal chart As Object, ByVal pal As String, ByVal reverse As Boolean)
+    Sub ColorBrewerFill(ByRef chart As Object, ByVal pal As String, ByVal reverse As Boolean)
+        'Million Dollar Question: Is there a way to avoid late-bound resolution in this sub?
         Dim palette As Array
         Dim series_count As Integer
         Dim rgb_color As Long
@@ -257,7 +331,7 @@ Public Class Addin
 
         With chart
             series_count = .SeriesCollection.Count
-            Select Case .ChartType
+            Select Case CType(.ChartType, XlChartType)
                 'Chart types enumerated here: https://msdn.microsoft.com/en-us/library/office/ff838409.aspx
                 Case XlChartType.xlXYScatter, XlChartType.xlXYScatterLines, XlChartType.xlXYScatterLinesNoMarkers, XlChartType.xlXYScatterSmooth, XlChartType.xlRadarMarkers
                     'Points, Lines optional Case
@@ -270,7 +344,7 @@ Public Class Addin
                     old_colors = GetChartRGBs(chart, XlChartType.xlXYScatter)
                     For i = 1 To series_count
                         If reverse Then
-                            rgb_color = old_colors(series_count - i)
+                            rgb_color = CType(old_colors(series_count - i), Long)
                         Else
                             rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
                         End If
@@ -324,7 +398,7 @@ Public Class Addin
                         End If
                         With .SeriesCollection(i)
                             .Interior.Color = rgb_color
-                            .Border.Color = rgb_color
+                            '.Border.Color = rgb_color
                         End With
                     Next
 
@@ -405,7 +479,6 @@ Public Class Addin
     End Sub
 
     Private Function GetChartRGBs(ByVal chart As Object, ByVal type As XlChartType) As ArrayList
-        'NOT FINISHED! (SEE BELOW)
         'Returns ArrayList of RGB (BGR?) values corresponding to each series in the chart
         'Based on the brilliant solution by David Zemens on Stack Overflow here: http://stackoverflow.com/a/25826428
         '''Dim temp_chart As Object
@@ -425,7 +498,6 @@ Public Class Addin
         '''temp_chart = applicationObject.ActiveChart
 
         chtType = chart.ChartType
-        colors.Clear()
 
         'Select correct SeriesCollection fill value based on xlChartType
         Select Case type
@@ -571,7 +643,8 @@ Public Class Addin
     Public Function GetEnabled(ByVal control As IRibbonControl) As Boolean
         Select Case control.Id
             Case "Undo"
-                Return False
+                'Should be "True" ONLY IF at leats one DocumentProperty exists **with correct name structure**
+                Return True
             Case "Palettes"
                 Return True
             Case Else
