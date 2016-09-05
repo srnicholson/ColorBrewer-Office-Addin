@@ -55,9 +55,10 @@ Public Class Addin
             reader.Close()
             PalettesDataTable = PalettesDataSet.Tables(0)
         Catch e As Exception
-            MsgBox(e.ToString)
+            MsgBox("Unspecified Error.")
         End Try
     End Sub
+
 #Region "IRibbonExtensibility Members"
 
     Public Function GetCustomUI(ByVal RibbonID As String) As String Implements IRibbonExtensibility.GetCustomUI
@@ -65,7 +66,6 @@ Public Class Addin
     End Function
 
     Public Sub OnAction(ByVal control As IRibbonControl, Optional ByVal PalId As Integer = 0)
-        'applicationObject.ScreenUpdating = False 'TO DO: This obscures runtime errors
         Try
             Select Case control.Id
                 Case "About"
@@ -74,13 +74,13 @@ Public Class Addin
                     Select Case applicationObject.Name.ToString
                         Case "Microsoft Excel"
                             appExcel = applicationObject
-                            Call Excel_Sub(PalId, False, False)
+                            Call Excel_Sub(PalId, False)
                         Case "Microsoft Word"
                             appWord = applicationObject
-                            Call Word_Sub(PalId, False, False)
+                            Call Word_Sub(PalId, False)
                         Case "Microsoft PowerPoint"
                             appPowerPoint = applicationObject
-                            Call PowerPoint_Sub(PalId, False, False)
+                            Call PowerPoint_Sub(PalId, False)
                         Case Else
                             MsgBox("Error: This Office application is not supported.")
                     End Select
@@ -88,27 +88,13 @@ Public Class Addin
                     Select Case applicationObject.Name.ToString
                         Case "Microsoft Excel"
                             appExcel = applicationObject
-                            Call Excel_Sub(PalId, True, False)
+                            Call Excel_Sub(PalId, True)
                         Case "Microsoft Word"
                             appWord = applicationObject
-                            Call Word_Sub(PalId, True, False)
+                            Call Word_Sub(PalId, True)
                         Case "Microsoft PowerPoint"
                             appPowerPoint = applicationObject
-                            Call PowerPoint_Sub(PalId, True, False)
-                        Case Else
-                            MsgBox("Error: This Office application is not supported.")
-                    End Select
-                Case "Undo"
-                    Select Case applicationObject.Name.ToString
-                        Case "Microsoft Excel"
-                            appExcel = applicationObject
-                            Call Excel_Sub(PalId, False, True)
-                        Case "Microsoft Word"
-                            appWord = applicationObject
-                            Call Word_Sub(PalId, False, True)
-                        Case "Microsoft PowerPoint"
-                            appPowerPoint = applicationObject
-                            Call PowerPoint_Sub(PalId, False, True)
+                            Call PowerPoint_Sub(PalId, True)
                         Case Else
                             MsgBox("Error: This Office application is not supported.")
                     End Select
@@ -119,229 +105,91 @@ Public Class Addin
             End Select
 
         Catch throwedException As Exception
-            applicationObject.ScreenUpdating = True 'TO DO: Possible solution to screenupdating obscuring errors-- add this line to every "Catch" statement (before message box)?
             MsgBox("Error: Unexpected state in ColorBrewer OnAction" + vbNewLine + "Error details: " + throwedException.Message)
-
         End Try
-        applicationObject.ScreenUpdating = True
     End Sub
 #End Region
 
 #Region "ColorBrewer Methods"
 
-    Public Sub Excel_Sub(ByVal PalId As Integer, ByVal reverse As Boolean, ByVal undo As Boolean)
+    Public Sub Excel_Sub(ByVal PalId As Integer, ByVal reverse As Boolean)
         Dim chart As Excel.Chart
-        Dim chartParent As Excel.ChartObject
-        Dim chart_type As Excel.XlChartType
-        Dim series_count As Integer
         Dim color_name As String
-        Dim pos_top, pos_left As Double
 
         Try
-            color_name = PaletteID2SName(PalId)
+            color_name = PaletteID2Name(PalId)
             chart = appExcel.ActiveChart
-            chartParent = CType(chart.Parent, Excel.ChartObject)
 
-            pos_top = chartParent.Top
-            pos_left = chartParent.Left
+            Call ColorBrewerFill(chart, color_name, reverse)
 
-            chartParent.Copy()
+        Catch e As Exception
+            MsgBox("Unspecified Error.")
+        End Try
 
-            'Hide the old chart
-            chartParent.Visible = False 'TO DO: Figure out where the old charts end up and how we can get them back on an "undo"
+    End Sub
 
-            CType(appExcel.ActiveSheet, Excel.Worksheet).Paste()
+    Public Sub Word_Sub(ByVal PalId As Integer, ByVal reverse As Boolean)
+        Dim inline As Word.InlineShape
+        Dim shape As Word.Shape
+        Dim chart As Word.Chart
+        Dim color_name As String
 
-            'set "chart" to point to the new copy
-            With CType(CType(appExcel.ActiveSheet, Excel.Worksheet).ChartObjects, Excel.ChartObjects)
-                chart = CType(.Item(.Count), Excel.ChartObject).Chart
+        Try
+            color_name = PaletteID2Name(PalId)
+            With appWord.ActiveWindow.Selection
+                'Determine if the selection is a regular shape or an inline shape
+                If .Type = 7 Then
+                    inline = .InlineShapes(1)
+                    shape = inline.ConvertToShape()
+                ElseIf .Type = 8 Then
+                    shape = .ShapeRange(1)
+                Else
+                    MsgBox("Error: No Chart Selected.") 'TO DO: Better way to handle this error?
+                    Exit Sub
+                End If
             End With
 
-            chartParent = CType(chart.Parent, Excel.ChartObject)
+            chart = shape.ConvertToInlineShape().Chart
 
-            'Align copy with original
-            chartParent.Top = pos_top
-            chartParent.Left = pos_left
-
-            chart_type = chart.ChartType
-            series_count = CType(chart.SeriesCollection, Excel.SeriesCollection).Count
-
-            Try
-                Call ColorBrewerFill(chart, color_name, reverse)
-            Catch e As Exception
-                'Note: This error message may not be repsentative of all types of failures.
-                MsgBox(e.ToString)
-                'MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
-            End Try
-        Catch e As Exception
-            MsgBox(e.ToString)
-            'MsgBox("No Chart Selected.")
-        End Try
-
-    End Sub
-
-    Public Sub Word_Sub(ByVal PalId As Integer, ByVal reverse As Boolean, ByVal undo As Boolean)
-        Dim old_inline As Word.InlineShape
-        Dim old_shape As Word.Shape, new_shape As Word.Shape
-        Dim new_chart As Word.Chart
-        Dim chart_type As XlChartType
-        Dim wrap_format As Word.WdWrapType
-        Dim series_count As Integer
-        Dim color_name As String
-        Dim pos_top, pos_left As Single
-        Dim IsShape As MsoTriState = MsoTriState.msoFalse
-        Dim property_name_prefix As String = "ColorBrewer_old_chart_id_"
-        Try
-            If undo Then
-                Dim prop As DocumentProperty
-                Dim final_prop As DocumentProperty
-                Dim prev_chart_id As Long
-                Dim prev_chart As Word.Shape
-                For Each prop In appWord.ActiveDocument.CustomDocumentProperties
-                    'Get most recent old_chart DocumentProperty
-                    If prop.Name.Contains(property_name_prefix) Then
-                        prev_chart_id = CType(prop.Value, Long)
-                        final_prop = prop
-                    End If
-
-                Next
-                appWord.ActiveDocument.Shapes(prev_chart_id).Visible = MsoTriState.msoTrue
-                appWord.ActiveDocument.Shapes(prev_chart_id + 1).Visible = MsoTriState.msoFalse
-                'Delete document property used to perform undo
-                final_prop.Delete()
-                'Redo functionality??
-            Else
-                color_name = PaletteID2SName(PalId)
-                With appWord.ActiveWindow.Selection
-                    'Determine if the selection is a regular shape or an inline shape
-                    If .Type = 7 Then
-                        old_inline = .InlineShapes(1)
-                        old_shape = old_inline.ConvertToShape()
-                    ElseIf .Type = 8 Then
-                        old_shape = .ShapeRange(1)
-                        wrap_format = old_shape.WrapFormat.Type
-                        IsShape = MsoTriState.msoTrue
-                    Else
-                        MsgBox("Error: No Chart Selected") 'TO DO: Better way to handle this error?
-                        Exit Sub
-                    End If
-                End With
-
-                pos_top = old_shape.Top
-                pos_left = old_shape.Left
-
-                new_shape = old_shape.Duplicate()
-
-                old_shape.Visible = MsoTriState.msoFalse 'TO DO: Figure out where the old charts end up and how we can get them back on an "undo"
-                Dim properties As DocumentProperties = CType(appWord.ActiveDocument.CustomDocumentProperties, DocumentProperties)
-                With properties
-                    Dim prop_name As String = property_name_prefix & properties.Count.ToString
-                    .Add(Name:=prop_name, LinkToContent:=False, Type:=1, Value:=old_shape.ID)
-                End With
-
-                'Align copy with original
-                new_shape.Top = pos_top
-                new_shape.Left = pos_left
-
-                new_chart = new_shape.ConvertToInlineShape().Chart
-
-                chart_type = new_chart.ChartType
-                series_count = CType(new_chart.SeriesCollection, Word.SeriesCollection).Count
-
-                Try
-                    Call ColorBrewerFill(new_chart, color_name, reverse)
-                Catch
-                    'Note: This error message may not be repsentative of all types of failures.
-                    MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
-                End Try
-
-                new_chart.Select() 'For now, this needs to be here; otherwise the program will crash if nothing is selected and a button is clicked
-                'TO DO: Alternative is to figure out way to disable buttons unless chart (shape or inlineshape) is selected
-
-                If IsShape = MsoTriState.msoTrue Then
-                    'Convert back to shape again and adjust wrap formatting
-                    CType(new_chart.Parent, Word.InlineShape).ConvertToShape()
-                    new_shape.WrapFormat.Type = wrap_format
-                End If
-            End If
+            Call ColorBrewerFill(chart, color_name, reverse)
 
         Catch e As Exception
-            MsgBox(e.ToString)
-            ''TO DO: Put these old error message is in the right spots.
-            'MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
-            'MsgBox("No Chart Selected")
+            MsgBox("Unspecified Error.")
         End Try
     End Sub
 
-    Public Sub PowerPoint_Sub(ByVal PalId As Integer, ByVal reverse As Boolean, ByVal undo As Boolean)
-        Dim old_shape, new_shape As PowerPoint.Shape
-        Dim chart_type As XlChartType
-        Dim pos_top, pos_left As Single
-        Dim series_count As Integer
+    Public Sub PowerPoint_Sub(ByVal PalId As Integer, ByVal reverse As Boolean)
+        Dim shape As PowerPoint.Shape
         Dim color_name As String
         Try
-            color_name = PaletteID2SName(PalId)
-            old_shape = appPowerPoint.ActiveWindow.Selection.ShapeRange(1)
-
-            'Get properties of old chart shape
-            chart_type = old_shape.Chart.ChartType
-            pos_top = old_shape.Top
-            pos_left = old_shape.Left
-            series_count = CType(old_shape.Chart.SeriesCollection, PowerPoint.SeriesCollection).Count
-
-            new_shape = old_shape.Duplicate()(1)
-            new_shape.Select()
-
-            old_shape.Visible = MsoTriState.msoFalse 'TO DO: Figure out where the old charts end up and how we can get them back on an "undo"
-
-            'Align copy with original
-            new_shape.Top = pos_top
-            new_shape.Left = pos_left
-
-            Try
-                Call ColorBrewerFill(new_shape.Chart, color_name, reverse)
-            Catch
-                'Note: This error message may not be repsentative of all types of failures.
-                MsgBox("Error: Data series count is outside this palette's range. Please choose a different palette or change the number of series.")
-            End Try
+            color_name = PaletteID2Name(PalId)
+            shape = appPowerPoint.ActiveWindow.Selection.ShapeRange(1)
+            Call ColorBrewerFill(shape.Chart, color_name, reverse)
         Catch e As Exception
-            MsgBox(e.ToString)
+            MsgBox("Unspecified Error.")
         End Try
     End Sub
-
-    Function GetPaletteData(pal As String, NumColors As Integer) As Array
-        Dim filter As String
-        filter = "[C] = '" + pal + "' AND [N] = '" + NumColors.ToString + "'"
-        Try
-            Return PalettesDataTable.Select(filter)
-        Catch e As Exception
-            MsgBox("Error: Invalid GetPaletteData function query")
-            Return Nothing
-        End Try
-    End Function
 
     Sub ColorBrewerFill(ByRef chart As Object, ByVal pal As String, ByVal reverse As Boolean)
-        'Million Dollar Question: Is there a way to avoid late-bound resolution in this sub?
         Dim palette As Array
         Dim series_count As Integer
         Dim rgb_color As Long
         Dim i As Integer
-        Dim pos_top, pos_left As Double
         Dim old_colors As New ArrayList
 
         With chart
             series_count = .SeriesCollection.Count
             Select Case CType(.ChartType, XlChartType)
                 'Chart types enumerated here: https://msdn.microsoft.com/en-us/library/office/ff838409.aspx
-                Case XlChartType.xlXYScatter, XlChartType.xlXYScatterLines, XlChartType.xlXYScatterLinesNoMarkers, XlChartType.xlXYScatterSmooth, XlChartType.xlRadarMarkers
+                Case XlChartType.xlXYScatter, XlChartType.xlXYScatterLines, XlChartType.xlXYScatterSmooth, XlChartType.xlLineMarkers, XlChartType.xlLineMarkersStacked, XlChartType.xlLineMarkersStacked100, XlChartType.xlRadarMarkers
                     'Points, Lines optional Case
-                    'TO DO: For scatterplots, change fill or line color depending on type of point (line-type vs shape type)
-                    'Otherwise everything changes to squares. UPDATE: may not be possible due to unhelpful "Automatic" property-- need a way to return the actual MarkerStyle
                     If Not reverse Then
                         palette = GetPaletteData(pal, series_count)
+                        If BlankPalette(palette) Then Exit Sub
                     End If
 
                     old_colors = GetChartRGBs(chart, XlChartType.xlXYScatter)
+
                     For i = 1 To series_count
                         If reverse Then
                             rgb_color = CType(old_colors(series_count - i), Long)
@@ -357,10 +205,11 @@ Public Class Addin
                             End If
                         End With
                     Next
-                Case XlChartType.xlLine, XlChartType.xlRadar
+                Case XlChartType.xlLine, XlChartType.xlLineStacked, XlChartType.xlRadar, XlChartType.xlXYScatterLinesNoMarkers, XlChartType.xlXYScatterSmoothNoMarkers, XlChartType.xlLineStacked100
                     'Line Only Case
                     If Not reverse Then
                         palette = GetPaletteData(pal, series_count)
+                        If BlankPalette(palette) Then Exit Sub
                     Else
                         old_colors = GetChartRGBs(chart, XlChartType.xlLine)
                     End If
@@ -377,14 +226,31 @@ Public Class Addin
                             .Format.Line.ForeColor.RGB = rgb_color
                         End With
                     Next
-                Case XlChartType.xlColumnClustered, XlChartType.xlConeCol, XlChartType.xl3DArea, XlChartType.xlAreaStacked, XlChartType.xlAreaStacked100, XlChartType.xlBubble3DEffect, XlChartType.xlPyramidBarClustered, XlChartType.xlRadarFilled
+                Case XlChartType.xl3DArea, XlChartType.xl3DAreaStacked, XlChartType.xl3DAreaStacked100, _
+                    XlChartType.xl3DBarClustered, XlChartType.xl3DBarStacked, XlChartType.xl3DBarStacked100, _
+                    XlChartType.xlBubble, XlChartType.xlBubble3DEffect, XlChartType.xl3DColumn, _
+                    XlChartType.xl3DLine, XlChartType.xl3DColumnClustered, XlChartType.xl3DColumnStacked, _
+                    XlChartType.xl3DColumnStacked100, XlChartType.xlArea, XlChartType.xlAreaStacked, _
+                    XlChartType.xlAreaStacked100, XlChartType.xlBarClustered, XlChartType.xlBarStacked, _
+                    XlChartType.xlBarStacked100, XlChartType.xlColumnClustered, XlChartType.xlColumnStacked, _
+                    XlChartType.xlColumnStacked100, XlChartType.xlConeBarClustered, XlChartType.xlConeBarStacked, _
+                    XlChartType.xlConeBarStacked100, XlChartType.xlConeCol, XlChartType.xlConeColClustered, _
+                    XlChartType.xlConeColStacked, XlChartType.xlConeColStacked100, XlChartType.xlCylinderBarClustered, _
+                    XlChartType.xlCylinderBarStacked, XlChartType.xlCylinderBarStacked100, XlChartType.xlCylinderCol, _
+                    XlChartType.xlCylinderColClustered, XlChartType.xlCylinderColStacked, XlChartType.xlCylinderColStacked100, _
+                    XlChartType.xlPyramidBarClustered, XlChartType.xlPyramidBarStacked, XlChartType.xlPyramidBarStacked100, _
+                    XlChartType.xlPyramidCol, XlChartType.xlPyramidColClustered, XlChartType.xlPyramidColStacked, _
+                    XlChartType.xlPyramidColStacked100, XlChartType.xlRadarFilled
+
+                    'Area Case
+
                     Dim old_spacing As String
                     'prevent column spacing from changing during color change
                     old_spacing = .ChartGroups(1).Overlap
 
-                    'Area Case
                     If Not reverse Then
                         palette = GetPaletteData(pal, series_count)
+                        If BlankPalette(palette) Then Exit Sub
                     Else
                         old_colors = GetChartRGBs(chart, XlChartType.xlColumnClustered)
                     End If
@@ -405,7 +271,7 @@ Public Class Addin
                     'prevent column spacing from changing during color change
                     .ChartGroups(1).Overlap = old_spacing
 
-                Case XlChartType.xlDoughnut, XlChartType.xlDoughnutExploded, XlChartType.xlPie
+                Case XlChartType.xl3DPie, XlChartType.xl3DPieExploded, XlChartType.xlDoughnut, XlChartType.xlDoughnutExploded, XlChartType.xlPie
                     'Pie Case
                     Dim j As Integer
                     Dim counter As Integer = 0
@@ -416,10 +282,10 @@ Public Class Addin
                         With .SeriesCollection(i)
                             If Not reverse Then
                                 palette = GetPaletteData(pal, .Points.Count)
+                                If BlankPalette(palette) Then Exit Sub
                             End If
 
                             For j = 1 To .Points.Count
-                                'MsgBox("Changing color: " & old_colors((i * j) - 1) & " for series " & i & " and point " & j & ".")
                                 If reverse Then
                                     rgb_color = old_colors(.Points.Count * series_count - counter - 1)
                                     counter = counter + 1
@@ -433,69 +299,42 @@ Public Class Addin
                             Next
                         End With
                     Next
-                Case XlChartType.xlSurface
-                    'Surface Case
-                    If Not reverse Then
-                        palette = GetPaletteData(pal, .Legend.LegendEntries.Count)
-                    Else
-                        old_colors = GetChartRGBs(chart, XlChartType.xlSurface)
-                    End If
-
-                    'TO DO: This "With" statement is application specific
-                    With .Legend
-                        'TODO: If Legend doesn't exist, display it temporarily to change colors
-                        '.HasLegend = True
-
-                        Debug.Print("current major unit =" & chart.Axes(2).MajorUnit) 'Errors if this statement is commented out...race condition?
-
-                        For i = 1 To .LegendEntries.Count
-                            'MsgBox("Changing color: " & old_colors(i - 1) & " in legend " & i & ".")
-                            If reverse Then
-                                rgb_color = old_colors(.LegendEntries.Count - i)
-                            Else
-                                rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
-                            End If
-                            .LegendEntries(i).LegendKey.Interior.Color = rgb_color
-                        Next
-                    End With
-                Case XlChartType.xlSurfaceWireframe, XlChartType.xlSurfaceTopViewWireframe
-                    'Surface Wireframe Case
-                    With .Legend
-                        palette = GetPaletteData(pal, .LegendEntries.Count)
-                        For i = 1 To .LegendEntries.Count
-                            rgb_color = RGB(palette(i - 1)(2), palette(i - 1)(3), palette(i - 1)(4))
-                            .LegendEntries(i).LegendKey.Border.Color = rgb_color
-                        Next
-                    End With
                 Case Else
                     MsgBox("Error: Graph type not supported.", vbOKOnly)
             End Select
         End With
-        'TO ADD:
-        '1) Reset Function-- Store previous SeriesCollection RGB values to give option to undo macro
-        '2) Option to exclude border coloring in Area plots
-        '3) "Inverse" to get sequence in opposite direction
-        '4) Option to install all palettes as xml Themes
     End Sub
+
+    Private Function GetPaletteData(pal As String, NumColors As Integer) As Array
+        Dim filter As String
+        filter = "[C] = '" + pal + "' AND [N] = '" + NumColors.ToString + "'"
+        Try
+            Return PalettesDataTable.Select(filter)
+        Catch e As Exception
+            MsgBox("Error: Invalid GetPaletteData function query")
+            Return Nothing
+        End Try
+    End Function
+
+    Private Function BlankPalette(palette As Array) As Boolean
+        If palette.Length = 0 Then
+            MsgBox("Error: The chart's series count is outside the range for this palette." & vbNewLine & _
+                   "Try a different palette or change the number of series in the chart." & vbNewLine & vbNewLine & _
+                   "Tip: Valid ranges for each palette are listed in the 'Choose a Palette' drop-down menu.")
+            Return True
+        Else
+            Return False
+        End If
+    End Function
 
     Private Function GetChartRGBs(ByVal chart As Object, ByVal type As XlChartType) As ArrayList
         'Returns ArrayList of RGB (BGR?) values corresponding to each series in the chart
-        'Based on the brilliant solution by David Zemens on Stack Overflow here: http://stackoverflow.com/a/25826428
-        '''Dim temp_chart As Object
-        '''Dim chart_index As Long
+        'Workaround for getting automatic colors for non-column charts is based on the
+        'clever solution by David Zemens on Stack Overflow here: http://stackoverflow.com/a/25826428
         Dim chtType As Long
         Dim colors As New ArrayList
         Dim fill_value As Long
         Dim counter As Integer
-
-        ''''OLD METHOD'''''
-        ''''create temporary chart
-        '''chart_index = chart.Parent.Index
-        '''chart.Parent.Copy()
-        ''''This may need to vary based on Application (Excel v Word v Powerpoint)
-        '''applicationObject.ActiveWindow.ActiveSheet.Paste()
-
-        '''temp_chart = applicationObject.ActiveChart
 
         chtType = chart.ChartType
 
@@ -507,17 +346,15 @@ Public Class Addin
                 fill_value = chart.SeriesCollection(1).Format.Fill.ForeColor.RGB
             Case XlChartType.xlLine
                 If chart.SeriesCollection(1).Format.Line.ForeColor.RGB = 16777215 Then
-                    'This appears to be what automatic line color is in Office 2007
+                    '16777215 appears to be what automatic line color is in Office 2007
                     fill_value = -1
                 Else
                     fill_value = chart.SeriesCollection(1).Format.Line.ForeColor.RGB
                 End If
             Case XlChartType.xlPie
                 fill_value = chart.SeriesCollection(1).Points(1).Interior.Color
-            Case XlChartType.xlSurface
-                fill_value = chart.Legend.LegendEntries(1).LegendKey.Interior.ColorIndex
             Case Else
-                fill_value = 9999 '???
+                fill_value = 9999 'Throw error
         End Select
         'ONLY changes to column plot IF the series fill type is automatic
         'Otherwise, custom colors (such as from a previous ColorBrewer run) will be lost.
@@ -547,39 +384,15 @@ Public Class Addin
                             colors.Add(point.Interior.Color)
                         Next
                     Next
-                Case XlChartType.xlSurface
-                    For Each srs In chart.Legend.LegendEntries
-                        colors.Add(srs.LegendKey.Interior.Color)
-                    Next
                 Case Else
-                    MsgBox("Error: unable to extract old series colors")
+                    MsgBox("Error: unable to extract original series colors")
             End Select
         End If
 
         chart.ChartType = chtType
 
-        ''''delete the temporary chart
-        '''temp_chart.Parent.Delete()
-        ''''This may also need to vary based on Application (Excel v Word v Powerpoint)
-        '''applicationObject.ActiveWindow.ActiveSheet.ChartObjects(chart_index).Activate()
-
         Return colors
     End Function
-
-    'Function GetPosition(ByVal chart As Object) As ArrayList
-    '    Dim coords As ArrayList
-    '    MsgBox("Here!")
-    '    Try
-    '        With chart
-    '            coords.Add(.Parent.Top)
-    '            coords.Add(.Parent.Left)
-    '        End With
-    '    Catch ex As Exception
-    '        MsgBox("Error in GetPosition function")
-    '    End Try
-
-    '    Return coords
-    'End Function
 
 #End Region
 
@@ -630,7 +443,7 @@ Public Class Addin
     End Function
     Public Function GetItemImage(ByVal control As IRibbonControl, ByVal itemIndex As Integer) As Bitmap
         Dim imageName As String
-        imageName = PaletteID2SName(itemIndex) & ".png"
+        imageName = PaletteID2Name(itemIndex) & ".png"
         Dim thisAssembly As Assembly = GetType(Addin).Assembly
         Dim stream As Stream = thisAssembly.GetManifestResourceStream(thisAssembly.GetName().Name + "." + imageName)
         Return New Bitmap(stream)
@@ -642,9 +455,6 @@ Public Class Addin
     End Function
     Public Function GetEnabled(ByVal control As IRibbonControl) As Boolean
         Select Case control.Id
-            Case "Undo"
-                'Should be "True" ONLY IF at leats one DocumentProperty exists **with correct name structure**
-                Return True
             Case "Palettes"
                 Return True
             Case Else
@@ -661,9 +471,45 @@ Public Class Addin
         Return itemWidth
     End Function
     Public Function getItemLabel(ByVal control As IRibbonControl, ByVal id As String) As String
-        Return PaletteID2SName(id)
+        Select Case id
+            Case 0 : Return "Accent (3 - 8)"
+            Case 1 : Return "Blues (3 - 9)"
+            Case 2 : Return "BrBG (3 - 11)"
+            Case 3 : Return "BuGn (3 - 9)"
+            Case 4 : Return "BuPu (3 - 9)"
+            Case 5 : Return "Dark2 (3 - 8)"
+            Case 6 : Return "GnBu (3 - 9)"
+            Case 7 : Return "Greens (3 - 9)"
+            Case 8 : Return "Greys (3 - 9)"
+            Case 9 : Return "Oranges (3 - 9)"
+            Case 10 : Return "OrRd (3 - 9)"
+            Case 11 : Return "Paired (3 - 12)"
+            Case 12 : Return "Pastel1 (3 - 9)"
+            Case 13 : Return "Pastel2 (3 - 8)"
+            Case 14 : Return "PiYG (3 - 11)"
+            Case 15 : Return "PRGn (3 - 11)"
+            Case 16 : Return "PuBu (3 - 9)"
+            Case 17 : Return "PuBuGn (3 - 9)"
+            Case 18 : Return "PuOr (3 - 11)"
+            Case 19 : Return "PuRd (3 - 9)"
+            Case 20 : Return "Purples (3 - 9)"
+            Case 21 : Return "RdBu (3 - 11)"
+            Case 22 : Return "RdGy (3 - 11)"
+            Case 23 : Return "RdPu (3 - 9)"
+            Case 24 : Return "Reds (3 - 9)"
+            Case 25 : Return "RdYlBu (3 - 11)"
+            Case 26 : Return "RdYlGn (3 - 11)"
+            Case 27 : Return "Set1 (3 - 9)"
+            Case 28 : Return "Set2 (3 - 8)"
+            Case 29 : Return "Set3 (3 - 12)"
+            Case 30 : Return "Spectral (3 - 11)"
+            Case 31 : Return "YlGn (3 - 9)"
+            Case 32 : Return "YlGnBu (3 - 9)"
+            Case 33 : Return "YlOrBr (3 - 9)"
+            Case 34 : Return "YlOrRd (3 - 9)"
+        End Select
     End Function
-    Function PaletteID2SName(index As Integer) As String
+    Function PaletteID2Name(index As Integer) As String
         Select Case index
             Case 0 : Return "Accent"
             Case 1 : Return "Blues"
@@ -703,21 +549,17 @@ Public Class Addin
         End Select
     End Function
     Public Function GetItemScreenTip(ByVal control As IRibbonControl, ByVal index As Integer) As String
-        Dim tipText As String = "This is a screentip for the item."
-        Return tipText
     End Function
     Public Function GetItemSuperTip(ByVal control As IRibbonControl, ByVal index As Integer) As String
-        Dim tipText As String = "This is a supertip for the item."
-        Return tipText
     End Function
     Public Function GetKeyTip(ByVal control As IRibbonControl) As String
-        Select Case control.Id
-            Case "Palettes" : Return "GL"
-        End Select
     End Function
     Public Function GetScreenTip(ByVal control As IRibbonControl) As String
         Select Case control.Id
+            Case "About" : Return "Click to learn more about the ColorBrewer Add-in."
             Case "Palettes" : Return "Click to open the palette gallery."
+            Case "Reverse_color_order" : Return "Click to reverse the color order of the selected chart."
+            Case "Help" : Return "Click for help using the ColorBrewer Add-in."
         End Select
     End Function
 

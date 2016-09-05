@@ -4,12 +4,11 @@
     <tabs>
       <tab id="ColorBrewer" label="ColorBrewer">
         <group id="group1">
-          <button id="About" label="About" imageMso="Info" size="large" onAction="OnAction" />
+          <button id="About" label="About" imageMso="Info" size="large" getScreentip="GetScreenTip" onAction="OnAction" />
           <gallery id="Palettes"
              columns="1"
              getEnabled="GetEnabled"
              getScreentip="GetScreenTip"
-             supertip="This is the super tip."
              getKeytip="GetKeyTip"
              getShowImage="GetShowImage"
              getShowLabel="GetShowLabel"
@@ -60,9 +59,8 @@
             <item id="YlOrBr" />
             <item id="YlOrRd" />
           </gallery>
-          <button id="Reverse_color_order" label="Reverse Color Order" imageMso="DiagramReverseClassic" size="large" onAction="OnAction" />
-          <button id="Undo" label="Undo" imageMso="Undo" size="large" onAction="OnAction" getEnabled ="GetEnabled" />
-          <button id="Help" label="Help" imageMso="Help" size="large" onAction="OnAction" />
+          <button id="Reverse_color_order" label="Reverse Color Order" imageMso="DiagramReverseClassic" size="large" getScreentip="GetScreenTip" onAction="OnAction" />
+          <button id="Help" label="Help" imageMso="Help" size="large" getScreentip="GetScreenTip" onAction="OnAction" />
         </group>
       </tab>
     </tabs>
