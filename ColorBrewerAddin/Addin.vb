@@ -116,13 +116,17 @@ Public Class Addin
         Dim chart As Excel.Chart
         Dim color_name As String
 
+        color_name = PaletteID2Name(PalId)
+
+        If appExcel.ActiveChart Is Nothing Then
+            MsgBox("Error: No Chart Selected.")
+            Exit Sub
+        End If
+
         Try
-            color_name = PaletteID2Name(PalId)
             chart = appExcel.ActiveChart
-
             Call ColorBrewerFill(chart, color_name, reverse)
-
-        Catch e As Exception
+        Catch
             MsgBox("Unspecified Error.")
         End Try
 
@@ -137,7 +141,7 @@ Public Class Addin
         Try
             color_name = PaletteID2Name(PalId)
             With appWord.ActiveWindow.Selection
-                'Determine if the selection is a regular shape or an inline shape
+                'Determine if the selection is a regular shape or an inline shape (or not a chart)
                 If .Type = 7 Then
                     inline = .InlineShapes(1)
                     shape = inline.ConvertToShape()
@@ -159,13 +163,20 @@ Public Class Addin
     End Sub
 
     Public Sub PowerPoint_Sub(ByVal PalId As Integer, ByVal reverse As Boolean)
-        Dim shape As PowerPoint.Shape
+        Dim chart As PowerPoint.Chart
         Dim color_name As String
+
+        color_name = PaletteID2Name(PalId)
         Try
-            color_name = PaletteID2Name(PalId)
-            shape = appPowerPoint.ActiveWindow.Selection.ShapeRange(1)
-            Call ColorBrewerFill(shape.Chart, color_name, reverse)
-        Catch e As Exception
+            chart = appPowerPoint.ActiveWindow.Selection.ShapeRange(1).Chart
+        Catch
+            MsgBox("Error: No Chart Selected.")
+            Exit Sub
+        End Try
+
+        Try
+            Call ColorBrewerFill(chart, color_name, reverse)
+        Catch
             MsgBox("Unspecified Error.")
         End Try
     End Sub
