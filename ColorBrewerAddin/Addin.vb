@@ -31,6 +31,7 @@ Public Class Addin
     Private appPowerPoint As PowerPoint.Application
     Dim PalettesDataSet As New DataSet
     Dim PalettesDataTable As System.Data.DataTable
+    Dim objShell As Object
 
     Public Sub OnBeginShutdown(ByRef custom As System.Array) Implements Extensibility.IDTExtensibility2.OnBeginShutdown
     End Sub
@@ -69,7 +70,11 @@ Public Class Addin
         Try
             Select Case control.Id
                 Case "About"
-                    MsgBox("Here is some information about the ColorBrewer Add-in.")
+                    MsgBox("Thanks for trying out the ColorBrewer Office Add-in!" _
+                           & vbNewLine & vbNewLine & "Originally designed for use in cartography and GIS, the ColorBrewer project was developed by Cynthia Brewer, Professor of Geography at Penn State University.  R users may recognize these palettes, as they are employed by Hadley Wickham's popular ggplot2 (via the RColorBrewer package created by Erich Neuwirth)." _
+                           & vbNewLine & vbNewLine & "The goal of developing this add-in was to provide an easy way of using these palettes in Office charts, thereby enabling users to quickly venture beyond the default options." _
+                           & vbNewLine & vbNewLine & "For more information, please visit the GitHub repository or the ColorBrewer website via the provided links." _
+                           & vbNewLine & vbNewLine & vbNewLine & "v6.0 ColorBrewer Office Add-in developed by Scott Nicholson.")
                 Case "Palettes"
                     Select Case applicationObject.Name.ToString
                         Case "Microsoft Excel"
@@ -99,7 +104,17 @@ Public Class Addin
                             MsgBox("Error: This Office application is not supported.")
                     End Select
                 Case "Help"
-                    MsgBox("This is the help button.")
+                    MsgBox("Thanks for trying out the ColorBrewer Office Add-in!" _
+                           & vbNewLine & vbNewLine & vbNewLine & "To get started, select a chart and then choose either:" _
+                           & vbNewLine & vbNewLine & "•""Choose a Palette"" to change the chart's color scheme, or" _
+                           & vbNewLine & vbNewLine & "•""Reverse Color Order"" to reverse the chart's existing color scheme." _
+                           & vbNewLine & vbNewLine & vbNewLine & "For more help, check out the GitHub page by clicking the ""GitHub"" button.")
+                Case "GitHub"
+                    objShell = CreateObject("Wscript.Shell")
+                    objShell.Run("https://github.com/srnicholson/ColorBrewer-Office-Addin/")
+                Case "ColorBrewerWebsite"
+                    objShell = CreateObject("Wscript.Shell")
+                    objShell.Run("http://colorbrewer2.org/")
                 Case Else
                     MsgBox("Unkown Control Id: " + control.Id, , "ColorBrewer Office Addin")
             End Select
@@ -119,7 +134,7 @@ Public Class Addin
         color_name = PaletteID2Name(PalId)
 
         If appExcel.ActiveChart Is Nothing Then
-            MsgBox("Error: No Chart Selected.")
+            MsgBox("Error: No chart selected.")
             Exit Sub
         End If
 
@@ -148,7 +163,7 @@ Public Class Addin
                 ElseIf .Type = 8 Then
                     shape = .ShapeRange(1)
                 Else
-                    MsgBox("Error: No Chart Selected.") 'TO DO: Better way to handle this error?
+                    MsgBox("Error: No chart selected.")
                     Exit Sub
                 End If
             End With
@@ -158,7 +173,7 @@ Public Class Addin
             Call ColorBrewerFill(chart, color_name, reverse)
 
         Catch e As Exception
-            MsgBox("Unspecified Error.")
+            MsgBox("Unknown Error.")
         End Try
     End Sub
 
@@ -170,7 +185,7 @@ Public Class Addin
         Try
             chart = appPowerPoint.ActiveWindow.Selection.ShapeRange(1).Chart
         Catch
-            MsgBox("Error: No Chart Selected.")
+            MsgBox("Error: No chart selected.")
             Exit Sub
         End Try
 
@@ -565,15 +580,16 @@ Public Class Addin
     End Function
     Public Function GetKeyTip(ByVal control As IRibbonControl) As String
     End Function
-    Public Function GetScreenTip(ByVal control As IRibbonControl) As String
+    Public Function GetSuperTip(ByVal control As IRibbonControl) As String
         Select Case control.Id
             Case "About" : Return "Click to learn more about the ColorBrewer Add-in."
             Case "Palettes" : Return "Click to open the palette gallery."
             Case "Reverse_color_order" : Return "Click to reverse the color order of the selected chart."
             Case "Help" : Return "Click for help using the ColorBrewer Add-in."
+            Case "GitHub" : Return "Click to go to the ColorBrewer Add-in code repository on GitHub." + vbCrLf + vbCrLf + "https://github.com/srnicholson/ColorBrewer-Office-Addin/"
+            Case "ColorBrewerWebsite" : Return "Click to go to the ColorBrewer website." + vbCrLf + vbCrLf + "http://colorbrewer2.org/"
         End Select
     End Function
-
     Public Sub galleryOnAction(ByVal control As IRibbonControl, ByVal selectedId As String, _
     ByVal selectedIndex As Integer)
         OnAction(control, selectedIndex)
