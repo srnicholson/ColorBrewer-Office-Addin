@@ -3,7 +3,7 @@ A Microsoft Office COM add-in which allows the user to quickly change graph colo
 
 ![new picture 3](https://cloud.githubusercontent.com/assets/16891177/16711719/c9b65bf6-4627-11e6-9a93-ff371f6de55e.png)
 
-## The v5.0 release of the ColorBrewer Office Add-in features:
+## The v6.0 release of the ColorBrewer Office Add-in features:
 
 ### Compatibility across the basic suite of Microsoft Office applications
   * Excel 2007 and later
